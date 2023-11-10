@@ -12,6 +12,7 @@ void initMetal();
 
 int main(int argc, const char *argv[]) {
   initMetal();
+  NSLog(@"Hello, World!");
   return 0;
 }
 
