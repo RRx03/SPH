@@ -24,3 +24,15 @@ buildApp:
 
 run: 
 	$(BUILD_DIR)/$(APP_NAME)
+
+
+git: add commit push
+
+add: 
+	git add .
+
+commit:
+	git commit -m "New Commit"
+
+push :
+	git push -u origin main                    
