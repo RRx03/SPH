@@ -1,3 +1,3 @@
-enum Settings {
-
+struct ParticleSettings {
+    unsigned int particleCount;
 };
