@@ -8,7 +8,7 @@
 
 using namespace metal;
 
-kernel void Main(){
+kernel void InitParticles(){
 
 }
 kernel void Main2(){
