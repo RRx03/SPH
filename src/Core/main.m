@@ -6,7 +6,7 @@ id<MTLDevice> device;
 id<MTLCommandQueue> commandQueue;
 id<MTLComputePipelineState> pipelineState01;
 id<MTLComputePipelineState> pipelineState02;
-ƒ id<MTLLibrary> library;
+id<MTLLibrary> library;
 
 const int ParticleCount = 10000;
 
