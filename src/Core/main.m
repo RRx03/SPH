@@ -11,8 +11,6 @@ id<MTLCommandQueue> commandQueue;
 ComputePSO *CPSO1;
 ComputePSO *CPSO2;
 
-
-struct Particle *particles;
 id<MTLBuffer> particlesBuffer;
 id<MTLBuffer> table;
 id<MTLBuffer> denseTable;
@@ -25,6 +23,19 @@ int main(int argc, const char *argv[])
     initSettings();
     initMetal();
 
+
+    initParticles();
+    return 0;
+}
+
+
+void initSettings()
+{
+    particleSettings.particleCount = 10000;
+}
+
+void initParticles()
+{
     id<MTLCommandBuffer> commandBuffer = [commandQueue commandBuffer];
     id<MTLComputeCommandEncoder> computeEncoder = [commandBuffer computeCommandEncoder];
 
@@ -46,24 +57,6 @@ int main(int argc, const char *argv[])
     struct Particle *particlesPtr = (struct Particle *)particlesBuffer.contents;
     for (int i = 0; i < particleSettings.particleCount; i++) {
         // printf("%f %f %f\n", particlesPtr[i].position[0], particlesPtr[i].position[1], particlesPtr[i].position[2]);
-    }
-
-    initParticles();
-    return 0;
-}
-
-
-void initSettings()
-{
-    particleSettings.particleCount = 10000;
-}
-
-void initParticles()
-{
-    particles = (struct Particle *)malloc(sizeof(struct Particle) * particleSettings.particleCount);
-
-    for (int i = 0; i < particleSettings.particleCount; i++) {
-        particles[i].position = simd_make_float3(0.0, 0.0, 0.0);
     }
 }
 
