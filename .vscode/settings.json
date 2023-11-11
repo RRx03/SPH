@@ -3,5 +3,6 @@
     "lldb.showDisassembly": "auto",
     "lldb.dereferencePointers": true,
     "lldb.consoleMode": "commands",
-    "editor.detectIndentation": false
+    "editor.detectIndentation": false,
+    "clang-format.executable": "/opt/homebrew/Cellar/clang-format/17.0.4/bin/clang-format"
 }
