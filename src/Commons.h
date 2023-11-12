@@ -1,10 +1,20 @@
+#ifndef COMMONS_H
+#define COMMONS_H
+
+
 #import <Cocoa/Cocoa.h>
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
+#import <MetalKit/MetalKit.h>
 #import <QuartzCore/QuartzCore.h>
-#include <objc/objc.h>
+#import <objc/objc.h>
+#import <simd/matrix.h>
 #import <simd/simd.h>
-#include <sys/_types/_null.h>
+#import <simd/types.h>
+#import <simd/vector_make.h>
+#import <sys/_types/_null.h>
+#import <unistd.h>
+#import "Settings.h"
 
 
 void initSettings();
@@ -19,38 +29,15 @@ uint hash(simd_int3 CellCoords, uint tableSize);
 - (void)setUpPSO:(id<MTLDevice>)device :(NSString *)libName :(NSString *)kernelName;
 // clang-format on
 @end
-@implementation ComputePSO
-
-@synthesize computePSO;
-
-- (id)init
-{
-    self.computePSO = nil;
-    return self;
-}
-// clang-format off
-- (void)setUpPSO:(id<MTLDevice>)device :(NSString *)libName :(NSString *)kernelName
-// clang-format on
-
-{
-    NSError *error = nil;
-    NSString *path = [NSString
-        stringWithFormat:@"/Users/romanroux/Documents/CPGE/TIPE/FinalVersion/SPH/src/Shaders/build/%@.metallib",
-                         libName];
-    NSURL *libraryURL = [NSURL URLWithString:path];
-
-    id<MTLLibrary> library = [device newLibraryWithURL:libraryURL error:&error];
-
-    if (!library) {
-        NSLog(@"Lib: %@", library);
-    }
-    id<MTLFunction> kernelFunction = [library newFunctionWithName:kernelName];
-    if (!kernelFunction) {
-        NSLog(@"Failed to create kernel function: %@", error);
-    }
-    self.computePSO = [device newComputePipelineStateWithFunction:kernelFunction error:&error];
-    if (!self.computePSO) {
-        NSLog(@"Failed to create compute pipeline state: %@", error);
-    }
-}
+@interface View : MTKView
+@property (retain, readwrite, nonatomic) id<MTLDevice> MTLDevice;
+@property (retain, readwrite, nonatomic) id<MTLCommandQueue> commandQueue;
+@property (retain, readwrite, nonatomic) id<MTLLibrary> library;
+@property (retain, readwrite, nonatomic) ComputePSO *CPSO1;
+@property (retain, readwrite, nonatomic) ComputePSO *CPSO2;
+@property (retain, readwrite, nonatomic) id<MTLRenderPipelineState> RenderPSO;
+@property (retain, readwrite, nonatomic) id<MTLDepthStencilState> DepthSO;
+@property (retain, readwrite, nonatomic) dispatch_semaphore_t Semaphore;
 @end
+
+#endif

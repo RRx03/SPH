@@ -1,23 +1,5 @@
-#import <Cocoa/Cocoa.h>
-#import <Metal/Metal.h>
-#import <MetalKit/MetalKit.h>
-#include <simd/matrix.h>
-#import <simd/simd.h>
-#include <simd/vector_make.h>
 #import "../Commons.h"
-#import "../common.h"
 
-@interface View : MTKView
-@property (retain, readwrite, nonatomic) id<MTLDevice> _device;
-@property (retain, readwrite, nonatomic) id<MTLCommandQueue> commandQueue;
-@property (retain, readwrite, nonatomic) id<MTLLibrary> library;
-@property (readwrite, nonatomic) struct ComputePSO *CPSO1;
-@property (readwrite, nonatomic) struct ComputePSO *CPSO2;
-@property (retain, readwrite, nonatomic) id<MTLRenderPipelineState> RenderPSO;
-@property (retain, readwrite, nonatomic) id<MTLDepthStencilState> DepthSO;
-@property (retain, readwrite, nonatomic) dispatch_semaphore_t Semaphore;
-@property (retain, readwrite, nonatomic) id<MTLBuffer> Buffer;
-@end
 
 int main(int argc, const char *argv[])
 {
@@ -51,60 +33,6 @@ int main(int argc, const char *argv[])
     }
     return 0;
 }
-@implementation View
-
-- (id)initWithFrame:(CGRect)inFrame
-{
-    self._device = MTLCreateSystemDefaultDevice();
-    self = [super initWithFrame:inFrame device:self._device];
-    if (self) {
-        [self setup];
-    }
-    return self;
-}
-
-- (void)setup
-{
-    self.colorPixelFormat = MTLPixelFormatBGRA8Unorm;
-    self.depthStencilPixelFormat = MTLPixelFormatDepth32Float_Stencil8;
-
-    NSError *error = nil;
-    NSString *path = [NSString
-        stringWithFormat:@"/Users/romanroux/Documents/CPGE/TIPE/FinalVersion/SPH/src/Shaders/build/%@.metallib",
-                         @"shader"];
-    NSURL *libraryURL = [NSURL URLWithString:path];
-
-    self.library = [self._device newLibraryWithURL:libraryURL error:&error];
-
-    MTLDepthStencilDescriptor *depthDesc = [MTLDepthStencilDescriptor new];
-    depthDesc.depthCompareFunction = MTLCompareFunctionLess;
-    depthDesc.depthWriteEnabled = YES;
-    self.DepthSO = [self._device newDepthStencilStateWithDescriptor:depthDesc];
-
-    _commandQueue = [self._device newCommandQueue];
-}
-
-- (void)drawRect:(CGRect)rect
-{
-    id<MTLCommandBuffer> commandBuffer = [_commandQueue commandBuffer];
-    id<MTLRenderCommandEncoder> encoder =
-        [commandBuffer renderCommandEncoderWithDescriptor:self.currentRenderPassDescriptor];
-
-    // [encoder setViewport:(MTLViewport){0.0, 0.0, self.drawableSize.width, self.drawableSize.height, 0.0, 1.0}];
-    // [encoder setDepthStencilState:self.DepthSO];
-    // [encoder setRenderPipelineState:self.RenderPSO];
-    [encoder endEncoding];
-
-    // [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> buffer) {
-    //   dispatch_semaphore_signal(semaphore);
-    // }];
-    [commandBuffer presentDrawable:self.currentDrawable];
-    [commandBuffer commit];
-
-    [super drawRect:rect];
-}
-
-@end
 
 
 /*#include <Foundation/Foundation.h>
