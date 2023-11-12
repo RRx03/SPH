@@ -1,5 +1,7 @@
+#import <Cocoa/Cocoa.h>
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
+#import <QuartzCore/QuartzCore.h>
 #include <objc/objc.h>
 #import <simd/simd.h>
 #include <sys/_types/_null.h>
