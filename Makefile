@@ -11,6 +11,8 @@ SHADER_BUILD_DIR = ./src/Shaders/build
 SHADER_INTER_FILES:= $(SHADER_BUILD_DIR)/*.ir
 SHADER_FILES:= ./src/Shaders/*.metal
 
+Message ?= $(shell bash -c 'read -p "Message: " message; echo $$message')
+
 
 all: buildShader buildApp run
 
@@ -37,7 +39,7 @@ add:
 	git add .
 
 commit:
-	git commit -m "New Commit"
+	git commit -m "$(Message)"
 
 push :
 	git push -u origin main                    

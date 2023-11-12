@@ -65,38 +65,48 @@
     self.colorPixelFormat = MTLPixelFormatBGRA8Unorm;
     self.depthStencilPixelFormat = MTLPixelFormatDepth32Float_Stencil8;
 
-    NSError *error = nil;
-    NSString *path = [NSString
-        stringWithFormat:@"/Users/romanroux/Documents/CPGE/TIPE/FinalVersion/SPH/src/Shaders/build/%@.metallib",
-                         @"shader"];
-    NSURL *libraryURL = [NSURL URLWithString:path];
+    self.Buffer = [self.MTLDevice newBufferWithLength:100 * sizeof(struct Particle)
+                                              options:MTLResourceStorageModeShared];
 
-    self.library = [self.MTLDevice newLibraryWithURL:libraryURL error:&error];
 
     MTLDepthStencilDescriptor *depthDesc = [MTLDepthStencilDescriptor new];
     depthDesc.depthCompareFunction = MTLCompareFunctionLess;
     depthDesc.depthWriteEnabled = YES;
     self.DepthSO = [self.MTLDevice newDepthStencilStateWithDescriptor:depthDesc];
 
+    self.clearColor = MTLClearColorMake(0.0, 0.0, 0.0, 1.0);
+
     _commandQueue = [self.MTLDevice newCommandQueue];
 }
 
 - (void)drawRect:(CGRect)rect
 {
-    id<MTLCommandBuffer> commandBuffer = [_commandQueue commandBuffer];
-    id<MTLRenderCommandEncoder> encoder =
-        [commandBuffer renderCommandEncoderWithDescriptor:self.currentRenderPassDescriptor];
+    id<MTLCommandBuffer> commandBuffer = [self.commandQueue commandBuffer];
+    id<MTLComputeCommandEncoder> computeEncoder = [commandBuffer computeCommandEncoder];
 
-    // [encoder setViewport:(MTLViewport){0.0, 0.0, self.drawableSize.width, self.drawableSize.height, 0.0, 1.0}];
-    // [encoder setDepthStencilState:self.DepthSO];
-    // [encoder setRenderPipelineState:self.RenderPSO];
-    [encoder endEncoding];
+    [computeEncoder setComputePipelineState:self.CPSO1.computePSO];
+    [computeEncoder setBuffer:self.Buffer offset:0 atIndex:0];
 
-    // [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> buffer) {
-    //   dispatch_semaphore_signal(semaphore);
-    // }];
+    unsigned int maxThreadsPerThreadgroup = self.CPSO1.computePSO.maxTotalThreadsPerThreadgroup;
+    maxThreadsPerThreadgroup =
+        (100 > maxThreadsPerThreadgroup) * maxThreadsPerThreadgroup + (100 <= maxThreadsPerThreadgroup) * 100;
+    MTLSize threadsPerGroup = MTLSizeMake(maxThreadsPerThreadgroup, 1, 1);
+    MTLSize numThreadgroups = MTLSizeMake(100, 1, 1);
+    [computeEncoder dispatchThreadgroups:numThreadgroups threadsPerThreadgroup:threadsPerGroup];
+    [computeEncoder endEncoding];
+
+    // struct Particle *particlesPtr = (struct Particle *)self.Buffer.contents;
+    // for (int i = 0; i < 100; i++) {
+    //     printf("%f %f %f\n", particlesPtr[i].position[0], particlesPtr[i].position[1], particlesPtr[i].position[2]);
+    // }
+
+    id<MTLRenderCommandEncoder> renderEncoder =
+        [commandBuffer renderCommandEncoderWithDescriptor:(self.currentRenderPassDescriptor)];
+
+    [renderEncoder endEncoding];
     [commandBuffer presentDrawable:self.currentDrawable];
     [commandBuffer commit];
+    [commandBuffer waitUntilCompleted];
 
     [super drawRect:rect];
 }

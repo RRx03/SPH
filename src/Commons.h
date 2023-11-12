@@ -15,6 +15,7 @@
 #import <sys/_types/_null.h>
 #import <unistd.h>
 #import "Settings.h"
+#import "Shared.h"
 
 
 void initSettings();
@@ -38,6 +39,8 @@ uint hash(simd_int3 CellCoords, uint tableSize);
 @property (retain, readwrite, nonatomic) id<MTLRenderPipelineState> RenderPSO;
 @property (retain, readwrite, nonatomic) id<MTLDepthStencilState> DepthSO;
 @property (retain, readwrite, nonatomic) dispatch_semaphore_t Semaphore;
+@property (retain, readwrite, nonatomic) id<MTLBuffer> Buffer;
+
 @end
 
 #endif
