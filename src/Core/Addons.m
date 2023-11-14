@@ -10,18 +10,11 @@
     return self;
 }
 // clang-format off
-- (void)setUpPSO:(id<MTLDevice>)device :(NSString *)libName :(NSString *)kernelName
+- (void)setUpPSO:(id<MTLDevice>)device :(id<MTLLibrary>)library :(NSString *)kernelName
 // clang-format on
 
 {
     NSError *error = nil;
-    NSString *path = [NSString
-        stringWithFormat:@"/Users/romanroux/Documents/CPGE/TIPE/FinalVersion/SPH/src/Shaders/build/%@.metallib",
-                         libName];
-    NSURL *libraryURL = [NSURL URLWithString:path];
-
-    id<MTLLibrary> library = [device newLibraryWithURL:libraryURL error:&error];
-
     if (!library) {
         NSLog(@"Lib: %@", library);
     }
@@ -35,3 +28,42 @@
     }
 }
 @end
+
+
+void createApp()
+{
+    @autoreleasepool {
+        [NSApplication sharedApplication];
+        [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+        [NSApp activateIgnoringOtherApps:YES];
+
+        NSMenu *bar = [NSMenu new];
+        NSMenuItem *barItem = [NSMenuItem new];
+        NSMenu *menu = [NSMenu new];
+        NSMenuItem *quit = [[NSMenuItem alloc] initWithTitle:@"Quit" action:@selector(terminate:) keyEquivalent:@"q"];
+        NSMenuItem *quitW = [[NSMenuItem alloc] initWithTitle:@"Close Window"
+                                                       action:@selector(terminate:)
+                                                keyEquivalent:@"w"];
+
+        [bar addItem:barItem];
+        [barItem setSubmenu:menu];
+        [menu addItem:quit];
+        [menu addItem:quitW];
+
+        NSApp.mainMenu = bar;
+
+        NSRect frame = NSMakeRect(0, 0, WIDTH, HEIGHT);
+        NSWindow *window = [[NSWindow alloc] initWithContentRect:frame
+                                                       styleMask:NSWindowStyleMaskTitled
+                                                         backing:NSBackingStoreBuffered
+                                                           defer:NO];
+        [window cascadeTopLeftFromPoint:NSMakePoint(0, 0)];
+        window.title = [[NSProcessInfo processInfo] processName];
+        [window makeKeyAndOrderFront:nil];
+
+        View *view = [[View alloc] initWithFrame:frame];
+        window.contentView = view;
+
+        [NSApp run];
+    }
+}

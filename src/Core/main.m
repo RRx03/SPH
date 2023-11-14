@@ -1,46 +1,80 @@
+#include <MetalKit/MetalKit.h>
 #import "../Commons.h"
-
 
 struct ParticleSettings particleSettings;
 struct Engine engine;
 
+static const Vertex triangleVertices[] = {
+    {{0, 1}, {1, 0, 0, 1}},
+    {{-1, -1}, {0, 1, 0, 1}},
+    {{1, -1}, {0, 0, 1, 1}},
+};
+
 int main(int argc, const char *argv[])
 {
-    @autoreleasepool {
-        [NSApplication sharedApplication];
-        [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
-        [NSApp activateIgnoringOtherApps:YES];
-
-        NSMenu *bar = [NSMenu new];
-        NSMenuItem *barItem = [NSMenuItem new];
-        NSMenu *menu = [NSMenu new];
-        NSMenuItem *quit = [[NSMenuItem alloc] initWithTitle:@"Quit" action:@selector(terminate:) keyEquivalent:@"q"];
-        NSMenuItem *quitW = [[NSMenuItem alloc] initWithTitle:@"Close Window"
-                                                       action:@selector(terminate:)
-                                                keyEquivalent:@"w"];
-
-        [bar addItem:barItem];
-        [barItem setSubmenu:menu];
-        [menu addItem:quit];
-        [menu addItem:quitW];
-
-        NSApp.mainMenu = bar;
-
-        NSRect frame = NSMakeRect(0, 0, WIDTH, HEIGHT);
-        NSWindow *window = [[NSWindow alloc] initWithContentRect:frame
-                                                       styleMask:NSWindowStyleMaskTitled
-                                                         backing:NSBackingStoreBuffered
-                                                           defer:NO];
-        [window cascadeTopLeftFromPoint:NSMakePoint(0, 0)];
-        window.title = [[NSProcessInfo processInfo] processName];
-        [window makeKeyAndOrderFront:nil];
-
-        View *view = [[View alloc] initWithFrame:frame];
-        window.contentView = view;
-
-        [NSApp run];
-    }
+    createApp();
     return 0;
+}
+
+void setup(MTKView *view)
+{
+    engine.commandQueue = [engine.device newCommandQueue];
+    view.clearColor = MTLClearColorMake(0.0, 0.0, 0.0, 1.0);
+    view.framebufferOnly = YES;
+    view.colorPixelFormat = MTLPixelFormatBGRA8Unorm;
+
+    // engine.CPSO1 = [[ComputePSO alloc] init];
+    // engine.CPSO2 = [[ComputePSO alloc] init];
+    // [engine.CPSO1 setUpPSO:engine.device:@"shader":@"InitParticles"];
+    // [engine.CPSO2 setUpPSO:engine.device:@"shader":@"Main"];
+
+    // NSLog(@"Device: %@", engine.device);
+    // NSLog(@"PSO1: %@", engine.CPSO1.computePSO);
+    // NSLog(@"PSO2: %@", engine.CPSO2.computePSO);
+    view.colorPixelFormat = MTLPixelFormatBGRA8Unorm;
+    view.depthStencilPixelFormat = MTLPixelFormatDepth32Float_Stencil8;
+
+    MTLDepthStencilDescriptor *depthDesc = [MTLDepthStencilDescriptor new];
+    depthDesc.depthCompareFunction = MTLCompareFunctionLess;
+    depthDesc.depthWriteEnabled = YES;
+    engine.DepthSO = [engine.device newDepthStencilStateWithDescriptor:depthDesc];
+
+    engine.commandQueue = [engine.device newCommandQueue];
+
+    NSError *error = nil;
+    NSString *path = [NSString
+        stringWithFormat:@"/Users/romanroux/Documents/CPGE/TIPE/FinalVersion/SPH/src/Shaders/build/%@.metallib",
+                         ShaderLib01];
+    NSURL *libraryURL = [NSURL URLWithString:path];
+    engine.library = [engine.device newLibraryWithURL:libraryURL error:&error];
+
+    MTLRenderPipelineDescriptor *renderPipelineDescriptor = [MTLRenderPipelineDescriptor new];
+    renderPipelineDescriptor.vertexFunction = [engine.library newFunctionWithName:@"vertexShader"];
+    renderPipelineDescriptor.fragmentFunction = [engine.library newFunctionWithName:@"fragmentShader"];
+    renderPipelineDescriptor.colorAttachments[0].pixelFormat = view.colorPixelFormat;
+    renderPipelineDescriptor.depthAttachmentPixelFormat = view.depthStencilPixelFormat;
+    renderPipelineDescriptor.stencilAttachmentPixelFormat = view.depthStencilPixelFormat;
+
+    engine.RPSO01 = [engine.device newRenderPipelineStateWithDescriptor:renderPipelineDescriptor error:&error];
+}
+
+void draw(MTKView *view)
+{
+    id<MTLCommandBuffer> commandBuffer = [engine.commandQueue commandBuffer];
+
+    id<MTLRenderCommandEncoder> renderEncoder =
+        [commandBuffer renderCommandEncoderWithDescriptor:(view.currentRenderPassDescriptor)];
+
+    [renderEncoder setRenderPipelineState:engine.RPSO01];
+
+    [renderEncoder setVertexBytes:triangleVertices length:sizeof(triangleVertices) atIndex:1];
+
+    [renderEncoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+
+    [renderEncoder endEncoding];
+    [commandBuffer presentDrawable:view.currentDrawable];
+    [commandBuffer commit];
+    [commandBuffer waitUntilCompleted];
 }
 
 
