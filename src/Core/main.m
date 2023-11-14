@@ -1,6 +1,9 @@
 #import "../Commons.h"
 
 
+struct ParticleSettings particleSettings;
+struct Engine engine;
+
 int main(int argc, const char *argv[])
 {
     @autoreleasepool {
@@ -12,17 +15,23 @@ int main(int argc, const char *argv[])
         NSMenuItem *barItem = [NSMenuItem new];
         NSMenu *menu = [NSMenu new];
         NSMenuItem *quit = [[NSMenuItem alloc] initWithTitle:@"Quit" action:@selector(terminate:) keyEquivalent:@"q"];
+        NSMenuItem *quitW = [[NSMenuItem alloc] initWithTitle:@"Close Window"
+                                                       action:@selector(terminate:)
+                                                keyEquivalent:@"w"];
+
         [bar addItem:barItem];
         [barItem setSubmenu:menu];
         [menu addItem:quit];
+        [menu addItem:quitW];
+
         NSApp.mainMenu = bar;
 
-        NSRect frame = NSMakeRect(0, 0, 500, 500);
+        NSRect frame = NSMakeRect(0, 0, WIDTH, HEIGHT);
         NSWindow *window = [[NSWindow alloc] initWithContentRect:frame
                                                        styleMask:NSWindowStyleMaskTitled
                                                          backing:NSBackingStoreBuffered
                                                            defer:NO];
-        [window cascadeTopLeftFromPoint:NSMakePoint(20, 20)];
+        [window cascadeTopLeftFromPoint:NSMakePoint(0, 0)];
         window.title = [[NSProcessInfo processInfo] processName];
         [window makeKeyAndOrderFront:nil];
 

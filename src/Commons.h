@@ -18,11 +18,16 @@
 #import "Shared.h"
 
 
+extern struct Engine engine;
+extern struct ParticleSettings particleSettings;
+
+
 void initSettings();
 void initParticles();
 void initMetal();
 simd_int3 CellCoords(simd_float3 pos, float CELL_SIZE);
 uint hash(simd_int3 CellCoords, uint tableSize);
+
 
 @interface ComputePSO : NSObject
 @property (retain, readwrite, nonatomic) id<MTLComputePipelineState> computePSO;
@@ -30,17 +35,29 @@ uint hash(simd_int3 CellCoords, uint tableSize);
 - (void)setUpPSO:(id<MTLDevice>)device :(NSString *)libName :(NSString *)kernelName;
 // clang-format on
 @end
-@interface View : MTKView
-@property (retain, readwrite, nonatomic) id<MTLDevice> MTLDevice;
-@property (retain, readwrite, nonatomic) id<MTLCommandQueue> commandQueue;
-@property (retain, readwrite, nonatomic) id<MTLLibrary> library;
-@property (retain, readwrite, nonatomic) ComputePSO *CPSO1;
-@property (retain, readwrite, nonatomic) ComputePSO *CPSO2;
-@property (retain, readwrite, nonatomic) id<MTLRenderPipelineState> RenderPSO;
-@property (retain, readwrite, nonatomic) id<MTLDepthStencilState> DepthSO;
-@property (retain, readwrite, nonatomic) dispatch_semaphore_t Semaphore;
-@property (retain, readwrite, nonatomic) id<MTLBuffer> Buffer;
 
+struct Buffer {
+    id<MTLBuffer> buffer;
+    uint count;
+    uint offset;
+};
+
+
+struct Engine {
+    id<MTLDevice> device;
+    id<MTLCommandQueue> commandQueue;
+    id<MTLLibrary> library;
+    ComputePSO *CPSO1;
+    ComputePSO *CPSO2;
+    id<MTLRenderPipelineState> RenderPSO;
+    id<MTLDepthStencilState> DepthSO;
+    dispatch_semaphore_t Semaphore;
+    struct Buffer *particleBuffer[BUFFER_COUNT];
+};
+
+void initEngine();
+
+@interface View : MTKView
 @end
 
 #endif
