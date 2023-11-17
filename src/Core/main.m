@@ -27,6 +27,7 @@ void setup(MTKView *view)
     depthDesc.depthWriteEnabled = YES;
     engine.DepthSO = [engine.device newDepthStencilStateWithDescriptor:depthDesc];
 
+
     engine.commandQueue = [engine.device newCommandQueue];
 
     MTKMeshBufferAllocator *allocator = [[MTKMeshBufferAllocator alloc] initWithDevice:engine.device];
@@ -64,6 +65,7 @@ void draw(MTKView *view)
     id<MTLRenderCommandEncoder> renderEncoder =
         [commandBuffer renderCommandEncoderWithDescriptor:(renderPassDescriptor)];
 
+    [renderEncoder setDepthStencilState:engine.DepthSO];
     [renderEncoder setRenderPipelineState:engine.RPSO01];
 
     [renderEncoder setVertexBuffer:mesh.vertexBuffers[0].buffer offset:0 atIndex:0];
@@ -75,7 +77,7 @@ void draw(MTKView *view)
                                indexType:submesh.indexType
                              indexBuffer:submesh.indexBuffer.buffer
                        indexBufferOffset:submesh.indexBuffer.offset
-                           instanceCount:3];
+                           instanceCount:1];
 
     [renderEncoder endEncoding];
     [commandBuffer presentDrawable:view.currentDrawable];
