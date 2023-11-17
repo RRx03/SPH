@@ -1,5 +1,6 @@
-#include <MetalKit/MetalKit.h>
-#import <ModelIO/ModelIO.h>
+#include <simd/vector_make.h>
+#include <simd/vector_types.h>
+#include <stdbool.h>
 #import "../Commons.h"
 
 struct ParticleSettings particleSettings;
@@ -30,13 +31,11 @@ void setup(MTKView *view)
 
     MTKMeshBufferAllocator *allocator = [[MTKMeshBufferAllocator alloc] initWithDevice:engine.device];
 
-    MDLMesh *mdlMesh = [MDLMesh newEllipsoidWithRadii:simd_make_float3(0.75, 0.75, 0.75)
-                                       radialSegments:100
-                                     verticalSegments:100
-                                         geometryType:MDLGeometryTypeTriangles
-                                        inwardNormals:NO
-                                           hemisphere:NO
-                                            allocator:allocator];
+    MDLMesh *mdlMesh = [[MDLMesh alloc] initSphereWithExtent:simd_make_float3(0.5, 0.5, 0.5)
+                                                    segments:simd_make_uint2(100, 100)
+                                               inwardNormals:false
+                                                geometryType:MDLGeometryTypeTriangles
+                                                   allocator:allocator];
     mesh = [[MTKMesh alloc] initWithMesh:mdlMesh device:engine.device error:nil];
 
     NSError *error = nil;
@@ -67,7 +66,7 @@ void draw(MTKView *view)
 
     [renderEncoder setRenderPipelineState:engine.RPSO01];
 
-    [renderEncoder setVertexBuffer:(mesh.vertexBuffers[0].buffer) offset:0 atIndex:1];
+    [renderEncoder setVertexBuffer:mesh.vertexBuffers[0].buffer offset:0 atIndex:1];
     MTKSubmesh *submesh = mesh.submeshes[0];
 
 

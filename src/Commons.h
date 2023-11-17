@@ -12,9 +12,11 @@
 #import <simd/matrix.h>
 #import <simd/simd.h>
 #import <simd/types.h>
+#import <simd/vector.h>
 #import <simd/vector_make.h>
 #import <sys/_types/_null.h>
 #import <unistd.h>
+
 #import "Settings.h"
 #import "Shared.h"
 
