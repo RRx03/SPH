@@ -3,10 +3,20 @@
 #include <stdbool.h>
 #import "../Commons.h"
 
-struct ParticleSettings particleSettings;
+struct SETTINGS SETTINGS;
 struct Engine engine;
+struct Uniform uniform;
 
-MTKMesh *mesh;
+struct SETTINGS initSettings()
+{
+    struct SETTINGS settings;
+    settings.PARTICLECOUNT = 10000;
+    settings.RADIUS = 0.1;
+    settings.H = 0.1;
+    settings.MASS = 1;
+    settings.COLOR = simd_make_float3(1.0, 1.0, 1.0);
+    return settings;
+}
 
 int main(int argc, const char *argv[])
 {
@@ -16,6 +26,7 @@ int main(int argc, const char *argv[])
 
 void setup(MTKView *view)
 {
+    SETTINGS = initSettings();
     engine.commandQueue = [engine.device newCommandQueue];
     view.clearColor = MTLClearColorMake(0.0, 0.0, 0.0, 1.0);
     view.framebufferOnly = YES;
@@ -37,7 +48,7 @@ void setup(MTKView *view)
                                                inwardNormals:false
                                                 geometryType:MDLGeometryTypeTriangles
                                                    allocator:allocator];
-    mesh = [[MTKMesh alloc] initWithMesh:mdlMesh device:engine.device error:nil];
+    engine.mesh = [[MTKMesh alloc] initWithMesh:mdlMesh device:engine.device error:nil];
 
     NSError *error = nil;
     NSString *path = [NSString
@@ -52,9 +63,17 @@ void setup(MTKView *view)
     renderPipelineDescriptor.colorAttachments[0].pixelFormat = view.colorPixelFormat;
     renderPipelineDescriptor.depthAttachmentPixelFormat = view.depthStencilPixelFormat;
     renderPipelineDescriptor.stencilAttachmentPixelFormat = view.depthStencilPixelFormat;
-    renderPipelineDescriptor.vertexDescriptor = MTKMetalVertexDescriptorFromModelIO(mesh.vertexDescriptor);
+    renderPipelineDescriptor.vertexDescriptor = MTKMetalVertexDescriptorFromModelIO(engine.mesh.vertexDescriptor);
 
     engine.RPSO01 = [engine.device newRenderPipelineStateWithDescriptor:renderPipelineDescriptor error:&error];
+
+    uniform.projectionMatrix = projectionMatrix(70, (float)WIDTH / (float)HEIGHT, 0.1, 100);
+    uniform.viewMatrix = translation(simd_make_float3(0, 0, -2));
+    uniform.PARTICLECOUNT = SETTINGS.PARTICLECOUNT;
+    uniform.RADIUS = SETTINGS.RADIUS;
+    uniform.H = SETTINGS.H;
+    uniform.MASS = SETTINGS.MASS;
+    uniform.COLOR = SETTINGS.COLOR;
 }
 
 void draw(MTKView *view)
@@ -68,9 +87,9 @@ void draw(MTKView *view)
     [renderEncoder setDepthStencilState:engine.DepthSO];
     [renderEncoder setRenderPipelineState:engine.RPSO01];
 
-    [renderEncoder setVertexBuffer:mesh.vertexBuffers[0].buffer offset:0 atIndex:0];
-    MTKSubmesh *submesh = mesh.submeshes[0];
-
+    [renderEncoder setVertexBuffer:engine.mesh.vertexBuffers[0].buffer offset:0 atIndex:0];
+    MTKSubmesh *submesh = engine.mesh.submeshes[0];
+    [renderEncoder setVertexBytes:&uniform length:sizeof(struct Uniform) atIndex:(10)];
 
     [renderEncoder drawIndexedPrimitives:MTLPrimitiveTypeTriangle
                               indexCount:submesh.indexCount

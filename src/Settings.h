@@ -1,7 +1,13 @@
 #import <Foundation/Foundation.h>
-struct ParticleSettings {
-    unsigned int particleCount;
+#import <simd/simd.h>
+struct SETTINGS {
+    unsigned int PARTICLECOUNT;
+    float RADIUS;
+    float H;
+    float MASS;
+    simd_float3 COLOR;
 };
+
 
 /*
 Optimisation :

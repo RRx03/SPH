@@ -21,13 +21,16 @@
 #import "Shared.h"
 
 extern struct Engine engine;
-extern struct ParticleSettings particleSettings;
+extern struct SETTINGS SETTINGS;
+extern struct Uniform uniform;
 
 void createApp();
 void setup(MTKView *view);
 void draw(MTKView *view);
 simd_int3 CellCoords(simd_float3 pos, float CELL_SIZE);
 uint hash(simd_int3 CellCoords, uint tableSize);
+matrix_float4x4 projectionMatrix(float FOV, float aspect, float near, float far);
+matrix_float4x4 translation(simd_float3 vec);
 
 
 @interface ComputePSO : NSObject
@@ -52,6 +55,7 @@ struct Engine {
     id<MTLDepthStencilState> DepthSO;
     dispatch_semaphore_t Semaphore;
     struct Buffer *particleBuffer[BUFFER_COUNT];
+    MTKMesh *mesh;
     id<MTLCommandBuffer> commandRenderBuffer[BUFFER_COUNT]; // They are both the same but one of them only for rendering
     id<MTLCommandBuffer> commandComputeBuffer[BUFFER_COUNT]; // and the other only for computing.
 };

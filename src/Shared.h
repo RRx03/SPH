@@ -1,3 +1,4 @@
+#include <simd/matrix_types.h>
 #import <simd/simd.h>
 #include <simd/vector_types.h>
 
@@ -7,8 +8,14 @@
 #define ShaderLib01 @"shader"
 
 struct Uniform {
-    unsigned int SIZE;
-    float cellSIZE;
+    float dt;
+    unsigned int PARTICLECOUNT;
+    float RADIUS;
+    float H;
+    float MASS;
+    simd_float3 COLOR;
+    simd_float4x4 projectionMatrix;
+    simd_float4x4 viewMatrix;
 };
 
 struct Particle {
