@@ -3,21 +3,28 @@
 #include <metal_stdlib>
 #include "../Shared.h"
 
+
+
+struct VertexIn {
+    float4 position [[attribute(0)]];
+    float3 normals [[attribute(1)]];
+};
+
+
+
 struct RasterizerData {
     float4 position [[position]];
     float4 color;
 };
-struct VertexIn {
-    simd_float4 position [[attribute(0)]];
-    //float4 color [[attribute(1)]];
-};
 
 
 using namespace metal;
-vertex RasterizerData vertexShader(constant VertexIn *vertices [[buffer(1)]], uint vertexID [[vertex_id]]) //satge in etc etc instanec id
+vertex RasterizerData vertexShader(
+                                    const VertexIn vertices [[stage_in]], 
+                                    uint instance_id [[instance_id]])
 {
     RasterizerData out;
-    out.position = vector_float4(vertices[vertexID].position.xy, 0.0, 1.0);
+    out.position = vertices.position+0.5*instance_id;
     return out;
 }
 

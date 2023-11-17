@@ -66,7 +66,7 @@ void draw(MTKView *view)
 
     [renderEncoder setRenderPipelineState:engine.RPSO01];
 
-    [renderEncoder setVertexBuffer:mesh.vertexBuffers[0].buffer offset:0 atIndex:1];
+    [renderEncoder setVertexBuffer:mesh.vertexBuffers[0].buffer offset:0 atIndex:0];
     MTKSubmesh *submesh = mesh.submeshes[0];
 
 
@@ -74,7 +74,8 @@ void draw(MTKView *view)
                               indexCount:submesh.indexCount
                                indexType:submesh.indexType
                              indexBuffer:submesh.indexBuffer.buffer
-                       indexBufferOffset:submesh.indexBuffer.offset];
+                       indexBufferOffset:submesh.indexBuffer.offset
+                           instanceCount:3];
 
     [renderEncoder endEncoding];
     [commandBuffer presentDrawable:view.currentDrawable];
