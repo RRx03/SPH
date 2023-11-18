@@ -1,10 +1,13 @@
-#include <simd/matrix_types.h>
+#import <simd/matrix_types.h>
 #import <simd/simd.h>
-#include <simd/vector_types.h>
+#import <simd/vector_types.h>
 
 #define WIDTH 800
 #define HEIGHT 800
-#define BUFFER_COUNT 3
+#define BUFFER_COUNT 1
+#define VERTEXDEFINITION 10
+#define CAMERAPOSITION 0, 0, -10
+
 #define ShaderLib01 @"shader"
 
 struct Uniform {

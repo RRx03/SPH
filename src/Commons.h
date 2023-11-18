@@ -31,6 +31,8 @@ simd_int3 CellCoords(simd_float3 pos, float CELL_SIZE);
 uint hash(simd_int3 CellCoords, uint tableSize);
 matrix_float4x4 projectionMatrix(float FOV, float aspect, float near, float far);
 matrix_float4x4 translation(simd_float3 vec);
+void initParticles();
+void updatedt();
 
 
 @interface ComputePSO : NSObject
@@ -40,22 +42,20 @@ matrix_float4x4 translation(simd_float3 vec);
 // clang-format on
 @end
 
-struct Buffer {
-    id<MTLBuffer> buffer;
-    uint count;
-    uint offset;
-};
-
 
 struct Engine {
+    NSDate *start;
     id<MTLDevice> device;
     id<MTLCommandQueue> commandQueue;
     id<MTLLibrary> library;
-    id<MTLRenderPipelineState> RPSO01;
     id<MTLDepthStencilState> DepthSO;
+    id<MTLRenderPipelineState> RPSO01;
+    id<MTLComputePipelineState> CPSOinitParticles;
+    id<MTLComputePipelineState> CPSOupdateParticles;
     dispatch_semaphore_t Semaphore;
-    struct Buffer *particleBuffer[BUFFER_COUNT];
     MTKMesh *mesh;
+    uint bufferIndex;
+    id<MTLBuffer> particleBuffer;
     id<MTLCommandBuffer> commandRenderBuffer[BUFFER_COUNT]; // They are both the same but one of them only for rendering
     id<MTLCommandBuffer> commandComputeBuffer[BUFFER_COUNT]; // and the other only for computing.
 };
