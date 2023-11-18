@@ -5,6 +5,7 @@
 #define WIDTH 800
 #define HEIGHT 800
 #define BUFFER_COUNT 1
+#define SUBSTEPSCOUNT 8
 #define VERTEXDEFINITION 10
 #define CAMERAPOSITION 0, 0, -10
 
@@ -16,6 +17,7 @@ struct Uniform {
     float RADIUS;
     float H;
     float MASS;
+    unsigned int SUBSTEPS;
     simd_float3 COLOR;
     simd_float4x4 projectionMatrix;
     simd_float4x4 viewMatrix;

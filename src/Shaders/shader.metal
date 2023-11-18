@@ -16,7 +16,8 @@ constexpr float Q_rsqrt(float number)
 
 float random(thread uint *state, uint offset = 2345678)
 {
-    *state = *state * (*state + offset * 2) * (*state + offset * 3456) * (*state + 567890) + offset; //A revoir avec Hash function
+    *state = *state * (*state + offset * 2) * (*state + offset * 3456) * (*state + 567890) +
+             offset; // A revoir avec Hash function
     return *state / 4294967295.0;
 }
 
@@ -52,13 +53,14 @@ struct RasterizerData {
 
 using namespace metal;
 vertex RasterizerData vertexShader(const VertexIn vertices [[stage_in]],
-                                    constant Particle *particles [[buffer(1)]],
+                                   constant Particle *particles [[buffer(1)]],
                                    constant Uniform &uniform [[buffer(10)]],
                                    uint instance_id [[instance_id]])
 {
     RasterizerData out;
     Particle particle = particles[instance_id];
-    out.position = uniform.projectionMatrix * uniform.viewMatrix * translationMatrix(particle.position) * float4(vertices.position.xyz, 1);
+    out.position = uniform.projectionMatrix * uniform.viewMatrix * translationMatrix(particle.position) *
+                   float4(vertices.position.xyz, 1);
     out.color = float3(1, 1, 1);
     out.normal = vertices.normal;
     return out;
@@ -72,20 +74,37 @@ fragment float4 fragmentShader(RasterizerData in [[stage_in]])
 }
 
 
-
-kernel void initParticles(device Particle *particles [[buffer(1)]], constant Uniform &uniform [[buffer(10)]], uint id [[thread_position_in_grid]]) {
+kernel void initParticles(device Particle *particles [[buffer(1)]],
+                          constant Uniform &uniform [[buffer(10)]],
+                          uint id [[thread_position_in_grid]])
+{
     uint randomState = id;
-    float3 position = float3(random(&randomState) * 2 - 1, random(&randomState) * 2 - 1, random(&randomState) * 2 - 1);
+    float3 position = float3(random(&randomState) * 2 - 1, random(&randomState) * 2 + 3, random(&randomState) * 2 - 1);
     particles[id].position = position;
+    particles[id].oldPosition = position;
     particles[id].velocity = float3(0, 0, 0);
+    particles[id].acceleration = float3(0, 0, 0);
 
 }
 
 
-kernel void updateParticles(device Particle *particles [[buffer(1)]], constant Uniform &uniform [[buffer(10)]], uint id [[thread_position_in_grid]]) {
-    uint randomState = id;
-    float3 position = float3(random(&randomState) * 2 - 1, random(&randomState) * 2 - 1, random(&randomState) * 2 - 1);
-    particles[id].position = position;
-    particles[id].velocity = float3(0, 0, 0);
+kernel void updateParticles(device Particle *particles [[buffer(1)]],
+                            constant Uniform &uniform [[buffer(10)]],
+                            uint id [[thread_position_in_grid]])
+{
+    Particle particle = particles[id];
+    float3 FORCES = float3(0, -9.81*uniform.MASS, 0);
+    float updateDeltaTime = uniform.dt / uniform.SUBSTEPS;
+    for (uint subStepId = 0; subStepId < uniform.SUBSTEPS; ++subStepId) {
+        particle.acceleration = FORCES / uniform.MASS;
+        particle.velocity = particle.position - particle.oldPosition;
+        particle.oldPosition = particle.position;
+        particle.position += particle.velocity + particle.acceleration * updateDeltaTime * updateDeltaTime;
 
+        if(particle.position.y <= uniform.RADIUS){
+            particle.position.y = uniform.RADIUS;
+
+        }
+    }
+    particles[id] = particle;
 }

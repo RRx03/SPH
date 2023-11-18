@@ -61,6 +61,9 @@ void setup(MTKView *view)
     engine.CPSOinitParticles =
         [engine.device newComputePipelineStateWithFunction:[engine.library newFunctionWithName:@"initParticles"]
                                                      error:&error];
+    engine.CPSOupdateParticles =
+        [engine.device newComputePipelineStateWithFunction:[engine.library newFunctionWithName:@"updateParticles"]
+                                                     error:&error];
 
     MTLRenderPipelineDescriptor *renderPipelineDescriptor = [MTLRenderPipelineDescriptor new];
     renderPipelineDescriptor.vertexFunction = [engine.library newFunctionWithName:@"vertexShader"];
@@ -79,6 +82,7 @@ void setup(MTKView *view)
     uniform.H = SETTINGS.H;
     uniform.MASS = SETTINGS.MASS;
     uniform.COLOR = SETTINGS.COLOR;
+    uniform.SUBSTEPS = SUBSTEPSCOUNT;
     engine.particleBuffer = [engine.device newBufferWithLength:sizeof(struct Particle) * SETTINGS.PARTICLECOUNT
                                                        options:MTLResourceStorageModeShared];
     engine.bufferIndex = 0;
@@ -115,14 +119,31 @@ void draw(MTKView *view)
     [renderEncoder endEncoding];
     [engine.commandRenderBuffer[0] presentDrawable:view.currentDrawable];
     [engine.commandRenderBuffer[0] commit];
+
+
+    // MARK: - Compute
+
+    engine.commandComputeBuffer[0] = [engine.commandQueue commandBuffer];
+    id<MTLComputeCommandEncoder> computeEncoder = [engine.commandComputeBuffer[0] computeCommandEncoder];
+
+    [computeEncoder setComputePipelineState:engine.CPSOupdateParticles];
+    [computeEncoder setBuffer:engine.particleBuffer offset:0 atIndex:1];
+    [computeEncoder setBytes:&uniform length:sizeof(struct Uniform) atIndex:10];
+    [computeEncoder dispatchThreads:MTLSizeMake(SETTINGS.PARTICLECOUNT, 1, 1)
+              threadsPerThreadgroup:MTLSizeMake(engine.CPSOinitParticles.maxTotalThreadsPerThreadgroup, 1, 1)];
+    [computeEncoder endEncoding];
+    [engine.commandComputeBuffer[0] commit];
+
+
+    [engine.commandComputeBuffer[0] waitUntilCompleted];
     [engine.commandRenderBuffer[0] waitUntilCompleted];
 }
 
 
 void initParticles()
 {
-    engine.commandRenderBuffer[0] = [engine.commandQueue commandBuffer];
-    id<MTLComputeCommandEncoder> computeEncoder = [engine.commandRenderBuffer[0] computeCommandEncoder];
+    engine.commandComputeBuffer[0] = [engine.commandQueue commandBuffer];
+    id<MTLComputeCommandEncoder> computeEncoder = [engine.commandComputeBuffer[0] computeCommandEncoder];
 
     [computeEncoder setComputePipelineState:engine.CPSOinitParticles];
     [computeEncoder setBuffer:engine.particleBuffer offset:0 atIndex:1];
@@ -130,8 +151,8 @@ void initParticles()
     [computeEncoder dispatchThreads:MTLSizeMake(SETTINGS.PARTICLECOUNT, 1, 1)
               threadsPerThreadgroup:MTLSizeMake(engine.CPSOinitParticles.maxTotalThreadsPerThreadgroup, 1, 1)];
     [computeEncoder endEncoding];
-    [engine.commandRenderBuffer[0] commit];
-    [engine.commandRenderBuffer[0] waitUntilCompleted];
+    [engine.commandComputeBuffer[0] commit];
+    [engine.commandComputeBuffer[0] waitUntilCompleted];
 }
 
 void updatedt()
