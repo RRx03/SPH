@@ -33,6 +33,9 @@ matrix_float4x4 projectionMatrix(float FOV, float aspect, float near, float far)
 matrix_float4x4 translation(simd_float3 vec);
 void initParticles();
 void updatedt();
+void RESET_TABLES();
+void RENDER(MTKView *view);
+void UPDATE_PARTICLES();
 
 
 @interface ComputePSO : NSObject
@@ -52,12 +55,16 @@ struct Engine {
     id<MTLRenderPipelineState> RPSO01;
     id<MTLComputePipelineState> CPSOinitParticles;
     id<MTLComputePipelineState> CPSOupdateParticles;
+    id<MTLComputePipelineState> CPSOresetTables;
     dispatch_semaphore_t Semaphore;
     MTKMesh *mesh;
     uint bufferIndex;
     id<MTLBuffer> particleBuffer;
     id<MTLCommandBuffer> commandRenderBuffer[BUFFER_COUNT]; // They are both the same but one of them only for rendering
     id<MTLCommandBuffer> commandComputeBuffer[BUFFER_COUNT]; // and the other only for computing.
+    id<MTLBuffer> TABLE_ARRAY;
+    id<MTLBuffer> DENSE_TABLE;
+    id<MTLBuffer> START_INDICES;
 };
 
 void initEngine();

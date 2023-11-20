@@ -12,7 +12,7 @@ struct SETTINGS initSettings()
 {
     struct SETTINGS settings;
     settings.PARTICLECOUNT = 10000;
-    settings.RADIUS = 0.1;
+    settings.RADIUS = 0.05;
     settings.H = 0.1;
     settings.MASS = 1;
     settings.COLOR = simd_make_float3(1.0, 1.0, 1.0);
@@ -28,7 +28,6 @@ int main(int argc, const char *argv[])
 void setup(MTKView *view)
 {
     SETTINGS = initSettings();
-
 
     view.clearColor = MTLClearColorMake(0.0, 0.0, 0.0, 1.0);
     view.framebufferOnly = YES;
@@ -64,6 +63,9 @@ void setup(MTKView *view)
     engine.CPSOupdateParticles =
         [engine.device newComputePipelineStateWithFunction:[engine.library newFunctionWithName:@"updateParticles"]
                                                      error:&error];
+    engine.CPSOresetTables =
+        [engine.device newComputePipelineStateWithFunction:[engine.library newFunctionWithName:@"RESET_TABLES"]
+                                                     error:&error];
 
     MTLRenderPipelineDescriptor *renderPipelineDescriptor = [MTLRenderPipelineDescriptor new];
     renderPipelineDescriptor.vertexFunction = [engine.library newFunctionWithName:@"vertexShader"];
@@ -74,6 +76,15 @@ void setup(MTKView *view)
     renderPipelineDescriptor.vertexDescriptor = MTKMetalVertexDescriptorFromModelIO(engine.mesh.vertexDescriptor);
 
     engine.RPSO01 = [engine.device newRenderPipelineStateWithDescriptor:renderPipelineDescriptor error:&error];
+
+    engine.TABLE_ARRAY = [engine.device newBufferWithLength:sizeof(uint) * SETTINGS.PARTICLECOUNT + 1
+                                                    options:MTLResourceStorageModeShared];
+    engine.DENSE_TABLE = [engine.device newBufferWithLength:sizeof(uint) * SETTINGS.PARTICLECOUNT
+                                                    options:MTLResourceStorageModeShared];
+    engine.START_INDICES =
+        [engine.device newBufferWithLength:sizeof(struct START_INDICES_STRUCT) * SETTINGS.PARTICLECOUNT
+                                   options:MTLResourceStorageModeShared];
+
 
     uniform.projectionMatrix = projectionMatrix(70, (float)WIDTH / (float)HEIGHT, 0.1, 100);
     uniform.viewMatrix = translation(simd_make_float3(CAMERAPOSITION));
@@ -87,6 +98,7 @@ void setup(MTKView *view)
                                                        options:MTLResourceStorageModeShared];
     engine.bufferIndex = 0;
     initParticles();
+    RESET_TABLES();
 }
 
 void draw(MTKView *view)
@@ -94,6 +106,37 @@ void draw(MTKView *view)
     updatedt();
 
     // MARK: - Render
+
+    RENDER(view);
+
+    // MARK: - Compute
+
+    UPDATE_PARTICLES();
+
+    // MARK: - Reset Tables
+
+    RESET_TABLES();
+}
+
+
+void initParticles()
+{
+    engine.commandComputeBuffer[0] = [engine.commandQueue commandBuffer];
+    id<MTLComputeCommandEncoder> computeEncoder = [engine.commandComputeBuffer[0] computeCommandEncoder];
+
+    [computeEncoder setComputePipelineState:engine.CPSOinitParticles];
+    [computeEncoder setBuffer:engine.particleBuffer offset:0 atIndex:1];
+    [computeEncoder setBytes:&uniform length:sizeof(struct Uniform) atIndex:10];
+    [computeEncoder dispatchThreads:MTLSizeMake(SETTINGS.PARTICLECOUNT, 1, 1)
+              threadsPerThreadgroup:MTLSizeMake(engine.CPSOinitParticles.maxTotalThreadsPerThreadgroup, 1, 1)];
+    [computeEncoder endEncoding];
+    [engine.commandComputeBuffer[0] commit];
+    [engine.commandComputeBuffer[0] waitUntilCompleted];
+}
+
+
+void RENDER(MTKView *view)
+{
     engine.commandRenderBuffer[0] = [engine.commandQueue commandBuffer];
     MTLRenderPassDescriptor *renderPassDescriptor = view.currentRenderPassDescriptor;
 
@@ -119,10 +162,11 @@ void draw(MTKView *view)
     [renderEncoder endEncoding];
     [engine.commandRenderBuffer[0] presentDrawable:view.currentDrawable];
     [engine.commandRenderBuffer[0] commit];
+}
 
 
-    // MARK: - Compute
-
+void UPDATE_PARTICLES()
+{
     engine.commandComputeBuffer[0] = [engine.commandQueue commandBuffer];
     id<MTLComputeCommandEncoder> computeEncoder = [engine.commandComputeBuffer[0] computeCommandEncoder];
 
@@ -133,20 +177,18 @@ void draw(MTKView *view)
               threadsPerThreadgroup:MTLSizeMake(engine.CPSOinitParticles.maxTotalThreadsPerThreadgroup, 1, 1)];
     [computeEncoder endEncoding];
     [engine.commandComputeBuffer[0] commit];
-
-
     [engine.commandComputeBuffer[0] waitUntilCompleted];
-    [engine.commandRenderBuffer[0] waitUntilCompleted];
 }
 
-
-void initParticles()
+void RESET_TABLES()
 {
     engine.commandComputeBuffer[0] = [engine.commandQueue commandBuffer];
     id<MTLComputeCommandEncoder> computeEncoder = [engine.commandComputeBuffer[0] computeCommandEncoder];
 
-    [computeEncoder setComputePipelineState:engine.CPSOinitParticles];
-    [computeEncoder setBuffer:engine.particleBuffer offset:0 atIndex:1];
+    [computeEncoder setComputePipelineState:engine.CPSOresetTables];
+    [computeEncoder setBuffer:engine.TABLE_ARRAY offset:0 atIndex:2];
+    [computeEncoder setBuffer:engine.DENSE_TABLE offset:0 atIndex:3];
+    [computeEncoder setBuffer:engine.START_INDICES offset:0 atIndex:4];
     [computeEncoder setBytes:&uniform length:sizeof(struct Uniform) atIndex:10];
     [computeEncoder dispatchThreads:MTLSizeMake(SETTINGS.PARTICLECOUNT, 1, 1)
               threadsPerThreadgroup:MTLSizeMake(engine.CPSOinitParticles.maxTotalThreadsPerThreadgroup, 1, 1)];

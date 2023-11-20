@@ -7,7 +7,8 @@
 #define BUFFER_COUNT 1
 #define SUBSTEPSCOUNT 8
 #define VERTEXDEFINITION 10
-#define CAMERAPOSITION 0, 0, -10
+#define CAMERAPOSITION 0, -2, -10
+
 
 #define ShaderLib01 @"shader"
 
@@ -25,7 +26,11 @@ struct Uniform {
 
 struct Particle {
     simd_float3 position;
-    simd_float3 oldPosition;
     simd_float3 velocity;
     simd_float3 acceleration;
+};
+
+struct START_INDICES_STRUCT {
+    unsigned int START_INDEX;
+    unsigned int COUNT;
 };
