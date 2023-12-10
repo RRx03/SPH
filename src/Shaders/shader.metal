@@ -3,6 +3,7 @@
 #include <metal_stdlib>
 #include "../Shared.h"
 
+#define PI M_PI_F
 
 using namespace metal;
 
@@ -25,11 +26,15 @@ constexpr float Q_rsqrt(float number)
     return y * (1.5f - (number * 0.5f * y * y));
 }
 
-float random(thread uint *state, uint offset = 2345678)
+float random(thread uint *state)
 {
-    *state = *state * (*state + offset * 2) * (*state + offset * 3456) * (*state + 567890) +
-             offset; // A revoir avec Hash function
-    return *state / 4294967295.0;
+    // uint offset = 8763982;
+    //*state = *state * (*state + offset * 2) * (*state + offset * 3456) * (*state + 567890) + offset; //utilisation de
+    // pointeurs pour modifier la valeur de d'état return *state / 4294967295.0; // 2^32 - 1 = 4294967295 afin de
+    // renvoyer un nombre entre 0 et 1
+
+    *state = (*state * 92837111) ^ (*state * 689287499) ^ (*state * 283923481);
+    return float(uint(*state) % 4294967295) / 4294967295.0;
 }
 
 float4x4 translationMatrix(float3 translation)
@@ -48,48 +53,105 @@ float4x4 projectionMatrixV2(float FOV, float aspect, float near, float far)
     return float4x4(float4(xScale, 0.0, 0.0, 0.0), float4(0.0, yScale, 0.0, 0.0), float4(0.0, 0.0, zScale, -1.0),
                     float4(0.0, 0.0, wzScale, 0.0));
 }
-int3 CELL_COORDS(float3 pos, float CELL_SIZE){
-    return int3(pos/CELL_SIZE); // CELL_SIZE = 2*H
+int3 CELL_COORDS(float3 pos, float CELL_SIZE)
+{
+    return int3(pos / CELL_SIZE) - int3(pos.x < 0, pos.y < 0, pos.z < 0);
 }
-uint HASH(int3 CELL_COORDS, uint tableSize){
-    int h = (CELL_COORDS.x*92837111)^(CELL_COORDS.y*689287499)^(CELL_COORDS.z*283923481);
+uint HASH(int3 CELL_COORDS, uint tableSize)
+{
+    int h = (CELL_COORDS.x * 92837111 + 653789820) ^ (CELL_COORDS.y * 689287499 + 653789820) ^
+            (CELL_COORDS.z * 283923481 + 653789820);
     return uint(abs(h) % tableSize);
+}
+uint SECOND_HASH(int3 CELL_COORDS, uint tableSize)
+{
+    int h = (CELL_COORDS.x * 92837111 + 653789820) ^ (CELL_COORDS.y * 689287499 + 653789820) ^
+            (CELL_COORDS.z * 283923481 + 653789820);
+    uint randomState = abs(h);
 
+    return uint(randomState * tableSize);
+}
+float W(float d, float H)
+{
+    return max(0.0, 315 * pow((pow(H, 2) - pow(d, 2)), 3) / (64 * 3.14 * pow(H, 9)));
+}
+float dW(float d, float H)
+{
+    return (d < H) ? -945 * d * pow((pow(H, 2) - pow(d, 2)), 2) / (32 * 3.14 * pow(H, 9)) : 0;
+}
+
+float SmoothingKernelPoly6(float dst, float radius)
+{
+    float scale = 315 / (64 * PI * pow(abs(radius), 9));
+    float v = radius * radius - dst * dst;
+    return (v * v * v * scale) * (dst < radius);
+}
+
+float DerivativeSmoothingKernelPoly6(float dst, float radius)
+{
+    float scale = -945 / (32 * PI * pow(abs(radius), 9));
+    float v = radius * radius - dst * dst;
+    return (v * v * scale * dst) * (dst < radius);
+}
+
+float CalculateProperty(float property, float density, float mass, float dist, float H)
+{
+    return property * mass * SmoothingKernelPoly6(dist, H) / density;
+}
+
+float3 CalculateGradientProperty(float fatherProperty,
+                                 float property,
+                                 float density,
+                                 float mass,
+                                 float dist,
+                                 float H,
+                                 float3 dir)
+{
+    return (property - fatherProperty) * mass * DerivativeSmoothingKernelPoly6(dist, H) / density * (-dir);
+}
+
+float3 CalculateGradientProperty2(float fatherProperty,
+                                  float property,
+                                  float fatherDensity,
+                                  float density,
+                                  float mass,
+                                  float dist,
+                                  float H,
+                                  float3 dir)
+{
+    return fatherDensity * mass * (fatherProperty / pow(fatherDensity, 2) + property / pow(density, 2)) *
+           DerivativeSmoothingKernelPoly6(dist, H) * (-dir);
+}
+float3 CalculateDensityVisualization(float density, float maxDensity)
+{
+    return float3(density / maxDensity, 0, 0);
+}
+float3 CalculatePressureVisualization(float pressure,
+                                      float MAX_GLOBAL_PRESSURE,
+                                      float MIN_GLOBAL_PRESSURE,
+                                      float targetPressure)
+{
+    return float3((abs(pressure - targetPressure) * (pressure - targetPressure > 0) /
+                   (abs(MAX_GLOBAL_PRESSURE - targetPressure) * (MAX_GLOBAL_PRESSURE - targetPressure > 0) +
+                    1 * (MAX_GLOBAL_PRESSURE - targetPressure <= 0))),
+                  (1 - ((abs(pressure - targetPressure) * (pressure - targetPressure > 0) /
+                         (abs(MAX_GLOBAL_PRESSURE - targetPressure) * (MAX_GLOBAL_PRESSURE - targetPressure > 0) +
+                          1 * (MAX_GLOBAL_PRESSURE - targetPressure <= 0))) +
+                        (abs(pressure + targetPressure) * (pressure + targetPressure < 0) /
+                         (abs(MIN_GLOBAL_PRESSURE + targetPressure) * (MIN_GLOBAL_PRESSURE + targetPressure < 0) +
+                          1 * (MIN_GLOBAL_PRESSURE + targetPressure >= 0))))),
+                  (abs(pressure + targetPressure) * (pressure + targetPressure < 0) /
+                   (abs(MIN_GLOBAL_PRESSURE + targetPressure) * (MIN_GLOBAL_PRESSURE + targetPressure < 0) +
+                    1 * (MIN_GLOBAL_PRESSURE + targetPressure >= 0))));
 }
 
 constant const int3 NEIGHBOURS[27] = {
-    int3(-1, -1, -1),
-    int3(0, -1, -1),
-    int3(1, -1, -1),
-    int3(-1, -1, 0),
-    int3(0, -1, 0),
-    int3(1, -1, 0),
-    int3(-1, -1, 1),
-    int3(0, -1, 1),
-    int3(1, -1, 1),
-    int3(-1, 0, -1),
-    int3(0, 0, -1),
-    int3(1, 0, -1),
-    int3(-1, 0, 0),
-    int3(0, 0, 0),
-    int3(1, 0, 0),
-    int3(-1, 0, 1),
-    int3(0, 0, 1),
-    int3(1, 0, 1),
-    int3(-1, 1, -1),
-    int3(0, 1, -1),
-    int3(1, 1, -1),
-    int3(-1, 1, 0),
-    int3(0, 1, 0),
-    int3(1, 1, 0),
-    int3(-1, 1, 1),
-    int3(0, 1, 1),
-    int3(1, 1, 1),
-    
-    
+    int3(-1, -1, -1), int3(0, -1, -1), int3(1, -1, -1), int3(-1, -1, 0), int3(0, -1, 0), int3(1, -1, 0),
+    int3(-1, -1, 1),  int3(0, -1, 1),  int3(1, -1, 1),  int3(-1, 0, -1), int3(0, 0, -1), int3(1, 0, -1),
+    int3(-1, 0, 0),   int3(0, 0, 0),   int3(1, 0, 0),   int3(-1, 0, 1),  int3(0, 0, 1),  int3(1, 0, 1),
+    int3(-1, 1, -1),  int3(0, 1, -1),  int3(1, 1, -1),  int3(-1, 1, 0),  int3(0, 1, 0),  int3(1, 1, 0),
+    int3(-1, 1, 1),   int3(0, 1, 1),   int3(1, 1, 1),
 };
-
-
 
 
 using namespace metal;
@@ -102,7 +164,7 @@ vertex RasterizerData vertexShader(const VertexIn vertices [[stage_in]],
     Particle particle = particles[instance_id];
     out.position = uniform.projectionMatrix * uniform.viewMatrix * translationMatrix(particle.position) *
                    float4(vertices.position.xyz, 1);
-    out.color = uniform.COLOR;
+    out.color = particle.color;
     out.normal = vertices.normal;
     return out;
 }
@@ -120,46 +182,181 @@ kernel void initParticles(device Particle *particles [[buffer(1)]],
                           uint id [[thread_position_in_grid]])
 {
     uint randomState = id;
-    float3 position = float3(3*(random(&randomState)-0.5), random(&randomState)*3+3, 3*(random(&randomState)-0.5));
+    float3 position =
+        float3(3 * (random(&randomState) - 0.5), random(&randomState) * 3 + 3, 3 * (random(&randomState) - 0.5));
     particles[id].position = position;
-
+    particles[id].oldPosition = position;
+    particles[id].nextPosition = position;
+    particles[id].forces = float3(0, 0, 0);
     particles[id].velocity = float3(0, 0, 0);
     particles[id].acceleration = float3(0, 0, 0);
-
+    particles[id].color = uniform.COLOR;
+    particles[id].density = SmoothingKernelPoly6(0, uniform.H) * uniform.MASS;
+    particles[id].pressure = uniform.GAS_CONSTANT * (particles[id].density - uniform.REST_DENSITY);
 }
 
+kernel void CALCULATE_DENSITIES(device Particle *particles [[buffer(1)]],
+                                constant uint *DENSE_TABLE [[buffer(3)]],
+                                constant START_INDICES_STRUCT *START_INDICES [[buffer(4)]],
+                                constant Uniform &uniform [[buffer(10)]],
+                                uint id [[thread_position_in_grid]])
+{
+    Particle particle = particles[id];
+    int3 CELL_COORDINATES = CELL_COORDS(particles[id].position, 2 * uniform.H);
+
+    float density = 0;
+    density += SmoothingKernelPoly6(0, uniform.H) * uniform.MASS;
+
+    uint NEIGHBOURING_CELLS[27];
+
+
+    for (int CELLID = 0; CELLID < 27; CELLID++) {
+        int3 NEIGHBOURING_CELLS_COORDS = CELL_COORDINATES + NEIGHBOURS[CELLID];
+
+        NEIGHBOURING_CELLS[CELLID] = HASH(NEIGHBOURING_CELLS_COORDS, uniform.PARTICLECOUNT);
+        int START_INDEX = START_INDICES[NEIGHBOURING_CELLS[CELLID]].START_INDEX;
+        int NEIGHBOURS_COUNT = START_INDICES[NEIGHBOURING_CELLS[CELLID]].COUNT;
+
+        if (uint(START_INDEX) < uniform.PARTICLECOUNT) {
+            for (int NEIGHBOUR_ID = 0; NEIGHBOUR_ID < NEIGHBOURS_COUNT; NEIGHBOUR_ID++) {
+                uint OPID = DENSE_TABLE[START_INDEX + NEIGHBOUR_ID];
+                float3 diff = particles[OPID].position - particle.position;
+                float sqrdDist = dot(diff, diff);
+                if (sqrdDist < uniform.H * uniform.H) {
+                    if (OPID != id) {
+                        float Wij = SmoothingKernelPoly6(sqrt(sqrdDist), uniform.H);
+                        density += Wij * uniform.MASS;
+                    }
+                }
+            }
+        }
+    }
+    particle.density = density;
+    particle.pressure = uniform.GAS_CONSTANT * (density - uniform.REST_DENSITY);
+    particles[id] = particle;
+}
 
 kernel void updateParticles(device Particle *particles [[buffer(1)]],
+                            constant uint *DENSE_TABLE [[buffer(3)]],
+                            constant START_INDICES_STRUCT *START_INDICES [[buffer(4)]],
                             constant Uniform &uniform [[buffer(10)]],
                             uint id [[thread_position_in_grid]])
 {
     Particle particle = particles[id];
-    float3 FORCES = float3(0, -9.81*uniform.MASS, 0);
+    int3 CELL_COORDINATES = CELL_COORDS(particles[id].position, 2 * uniform.H);
+    int CELL_HASH = HASH(CELL_COORDINATES, uniform.PARTICLECOUNT);
+
+    uint RANDOM_STATE = CELL_HASH;
+    float3 COLOR = float3(random(&RANDOM_STATE), random(&RANDOM_STATE), random(&RANDOM_STATE));
+    COLOR = CalculateDensityVisualization(particle.density, uniform.MAX_GLOBAL_DENSITY); // DENSITY VISUALIZATION
+    COLOR = CalculatePressureVisualization(particle.pressure, uniform.MAX_GLOBAL_PRESSURE, uniform.MIN_GLOBAL_PRESSURE,
+                                           uniform.REST_DENSITY); // PRESSURE VISUALIZATION
+    particle.color = COLOR;
+
+    float3 WEIGHT_FORCE = float3(0, -9.81 * uniform.MASS, 0);
+
+    float3 PRESSURE_FORCE = float3(0, 0, 0);
+
+
     float updateDeltaTime = uniform.dt / uniform.SUBSTEPS;
-    for (uint subStepId = 0; subStepId < uniform.SUBSTEPS; ++subStepId) {
-        particle.acceleration = FORCES / uniform.MASS;
+    for (uint subStepId = 0; subStepId < uniform.SUBSTEPS; subStepId++) {
+        uint NEIGHBOURING_CELLS[27];
 
-        //Implementation lourde.
+        for (int CELLID = 0; CELLID < 27; CELLID++) {
+            int3 NEIGHBOURING_CELLS_COORDS = CELL_COORDINATES + NEIGHBOURS[CELLID];
 
+            NEIGHBOURING_CELLS[CELLID] = HASH(NEIGHBOURING_CELLS_COORDS, uniform.PARTICLECOUNT);
+            int START_INDEX = START_INDICES[NEIGHBOURING_CELLS[CELLID]].START_INDEX;
+            int NEIGHBOURS_COUNT = START_INDICES[NEIGHBOURING_CELLS[CELLID]].COUNT;
+
+            if (uint(START_INDEX) < uniform.PARTICLECOUNT) {
+                for (int NEIGHBOUR_ID = 0; NEIGHBOUR_ID < NEIGHBOURS_COUNT; NEIGHBOUR_ID++) {
+                    uint OPID = DENSE_TABLE[START_INDEX + NEIGHBOUR_ID];
+                    if (OPID != id) {
+                        float3 diff = particles[OPID].position - particle.position;
+                        float sqrdDist = dot(diff, diff);
+                        float3 dir = float3(2 * (random(&RANDOM_STATE) - 0.5), 2 * (random(&RANDOM_STATE) - 0.5),
+                                            2 * (random(&RANDOM_STATE) - 0.5));
+                        if (sqrdDist < uniform.H * uniform.H) {
+                            if (sqrdDist > 0)
+                                dir = diff / sqrt(sqrdDist);
+                            if (OPID != id) {
+                                PRESSURE_FORCE += uniform.MASS *
+                                                  (particle.pressure / pow(particle.density, 2) +
+                                                   particles[OPID].pressure / pow(particle.density, 2)) *
+                                                  DerivativeSmoothingKernelPoly6(sqrt(sqrdDist), uniform.H) * (-dir);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        particle.forces = float3(0, 0, 0);
+        particle.forces += WEIGHT_FORCE;
+        particle.forces += -PRESSURE_FORCE;
+        particle.acceleration = particle.forces / uniform.MASS;
         particle.velocity += particle.acceleration * updateDeltaTime;
         particle.position += particle.velocity * updateDeltaTime;
+        particle.nextPosition = particle.position + particle.velocity * updateDeltaTime;
 
-        if(particle.position.y <= uniform.RADIUS){
+
+        if (particle.position.y <= uniform.RADIUS) {
             particle.position.y = uniform.RADIUS;
-            particle.velocity.y = -particle.velocity.y*0.9;
-
+        }
+        if (particle.position.x > uniform.BOUNDING_BOX.x) {
+            particle.position.x = uniform.BOUNDING_BOX.x;
+            particle.velocity.x = -particle.velocity.x; // TEST
+        } else if (particle.position.x < -uniform.BOUNDING_BOX.x) {
+            particle.position.x = -uniform.BOUNDING_BOX.x;
+            particle.velocity.x = -particle.velocity.x; // TEST
+        }
+        if (particle.position.z > uniform.BOUNDING_BOX.z) {
+            particle.position.z = uniform.BOUNDING_BOX.z;
+            particle.velocity.z = -particle.velocity.z; // TEST
+        } else if (particle.position.z < -uniform.BOUNDING_BOX.z) {
+            particle.position.z = -uniform.BOUNDING_BOX.z;
+            particle.velocity.z = -particle.velocity.z; // TEST
         }
     }
+
+
     particles[id] = particle;
 }
 
-kernel void RESET_TABLES(   device uint *TABLE_ARRAY [[buffer(2)]],
-                            device uint *DENSE_TABLE [[buffer(3)]],
-                            device START_INDICES_STRUCT *START_INDICES [[buffer(4)]],
-                            constant Uniform &uniform [[buffer(10)]],
-                            uint id [[thread_position_in_grid]]){
+kernel void RESET_TABLES(device uint *TABLE_ARRAY [[buffer(2)]],
+                         device uint *DENSE_TABLE [[buffer(3)]],
+                         device START_INDICES_STRUCT *START_INDICES [[buffer(4)]],
+                         constant Uniform &uniform [[buffer(10)]],
+                         uint id [[thread_position_in_grid]])
+{
     TABLE_ARRAY[id] = 0;
+    TABLE_ARRAY[id + 1] = 0;
     DENSE_TABLE[id] = 0;
     START_INDICES[id].START_INDEX = uniform.PARTICLECOUNT;
     START_INDICES[id].COUNT = 0;
+}
+
+kernel void INIT_TABLES(constant Particle *PARTICLES [[buffer(1)]],
+                        device atomic_uint &TABLE_ARRAY [[buffer(2)]],
+                        constant Uniform &uniform [[buffer(10)]],
+                        uint particleID [[thread_position_in_grid]])
+{
+    int3 cellCoords = CELL_COORDS(PARTICLES[particleID].position, 2 * uniform.H);
+    uint hashValue = HASH(cellCoords, uniform.PARTICLECOUNT);
+    atomic_fetch_add_explicit(&TABLE_ARRAY + hashValue, 1, memory_order_relaxed);
+}
+
+kernel void ASSIGN_DENSE_TABLE(constant Particle *PARTICLES [[buffer(1)]],
+                               device atomic_uint &TABLE_ARRAY [[buffer(2)]],
+                               device atomic_uint &DENSE_TABLE [[buffer(3)]],
+                               constant Uniform &uniform [[buffer(10)]],
+                               uint particleID [[thread_position_in_grid]])
+{
+    int3 cellCoords = CELL_COORDS(PARTICLES[particleID].position, 2 * uniform.H);
+    uint hashValue = HASH(cellCoords, uniform.PARTICLECOUNT);
+
+    uint id = atomic_fetch_add_explicit(&TABLE_ARRAY + hashValue, -1, memory_order_relaxed);
+    id -= 1;
+
+    atomic_fetch_add_explicit(&DENSE_TABLE + id, particleID, memory_order_relaxed);
 }

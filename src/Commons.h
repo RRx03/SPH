@@ -36,7 +36,9 @@ void updatedt();
 void RESET_TABLES();
 void RENDER(MTKView *view);
 void UPDATE_PARTICLES();
-
+void INIT_TABLES();
+void ASSIGN_DENSE_TABLE();
+void CALCULATE_DENSITIES();
 
 @interface ComputePSO : NSObject
 @property (retain, readwrite, nonatomic) id<MTLComputePipelineState> computePSO;
@@ -56,6 +58,11 @@ struct Engine {
     id<MTLComputePipelineState> CPSOinitParticles;
     id<MTLComputePipelineState> CPSOupdateParticles;
     id<MTLComputePipelineState> CPSOresetTables;
+    id<MTLComputePipelineState> CPSOinitTables;
+    id<MTLComputePipelineState> CPSOassignDenseTables;
+    id<MTLComputePipelineState> CPSOcalculateDensities;
+
+
     dispatch_semaphore_t Semaphore;
     MTKMesh *mesh;
     uint bufferIndex;

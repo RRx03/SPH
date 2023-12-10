@@ -2,10 +2,13 @@
 #import <simd/simd.h>
 struct SETTINGS {
     unsigned int PARTICLECOUNT;
+    simd_float3 COLOR;
     float RADIUS;
     float H;
     float MASS;
-    simd_float3 COLOR;
+    float REST_DENSITY;
+    float GAS_CONSTANT;
+    simd_float3 BOUNDING_BOX;
 };
 
 
