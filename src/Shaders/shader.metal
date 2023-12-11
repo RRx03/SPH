@@ -162,44 +162,7 @@ float3 CalculateGradientProperty2(float fatherProperty,
            DerivativeSmoothingKernelPoly6(dist, H) * (-dir);
 }
 
-float3 CalculateDensityVisualization(float density, float maxDensity)
-{
-    return float3(density / maxDensity, 0, 0);
-}
-
-float3 CalculatePressureVisualization(float density, float desiredDensity, float threshold)
-{
-    float A =
-        (abs(density - desiredDensity) * (density - desiredDensity > 0) /
-         (abs(threshold - desiredDensity) * (threshold - desiredDensity > 0) + 1 * (threshold - desiredDensity <= 0)));
-    float B =
-        (abs(density + desiredDensity) * (density + desiredDensity < 0) /
-         (abs(threshold + desiredDensity) * (threshold + desiredDensity < 0) + 1 * (threshold + desiredDensity >= 0)));
-
-    return float3(A, (1 - (A + B)), B);
-
-    /*return float3((abs(pressure - targetPressure) * (pressure - targetPressure > 0) /
-                   (abs(MAX_GLOBAL_PRESSURE - targetPressure) * (MAX_GLOBAL_PRESSURE - targetPressure > 0) +
-                    1 * (MAX_GLOBAL_PRESSURE - targetPressure <= 0))),
-                  (1 - ((abs(pressure - targetPressure) * (pressure - targetPressure > 0) /
-                         (abs(MAX_GLOBAL_PRESSURE - targetPressure) * (MAX_GLOBAL_PRESSURE - targetPressure > 0) +
-                          1 * (MAX_GLOBAL_PRESSURE - targetPressure <= 0))) +
-                        (abs(pressure + targetPressure) * (pressure + targetPressure < 0) /
-                         (abs(MIN_GLOBAL_PRESSURE + targetPressure) * (MIN_GLOBAL_PRESSURE + targetPressure < 0) +
-                          1 * (MIN_GLOBAL_PRESSURE + targetPressure >= 0))))),
-                  (abs(pressure + targetPressure) * (pressure + targetPressure < 0) /
-                   (abs(MIN_GLOBAL_PRESSURE + targetPressure) * (MIN_GLOBAL_PRESSURE + targetPressure < 0) +
-                    1 * (MIN_GLOBAL_PRESSURE + targetPressure >= 0))));*/
-}
-
-float3 CalculateDensityVisualizationV2(float density, float desiredDensity, float Ma, float Mi, float threshold)
-{
-    float A = (density > desiredDensity + threshold) * (density - desiredDensity) / (Ma - desiredDensity);
-    float B = (density < desiredDensity - threshold) * (desiredDensity - density) / (desiredDensity - Mi);
-    float C = (density >= desiredDensity - threshold) * (density <= desiredDensity + threshold);
-    return float3(A, C, B);
-}
-float3 CalculateDensityVisualizationV3(float density, float desiredDensity, float Ma, float Mi, float threshold)
+float3 CalculateDensityVisualization(float density, float desiredDensity, float Ma, float Mi, float threshold)
 
 {
     float MaxCond = (density > desiredDensity + threshold);
@@ -213,13 +176,7 @@ float3 CalculateDensityVisualizationV3(float density, float desiredDensity, floa
     return float3(A, C, B);
 }
 
-float3 CalculateSpeedVisualization(float speed, float maxSpeed, float minSpeed)
-{
-    float A = speed / (maxSpeed + 1 * (maxSpeed == 0));
-    return float3(A, 1 - A, 0);
-}
-
-float3 CalculateSpeedVisualizationV2(float v, float Ma, float Mi)
+float3 CalculateSpeedVisualization(float v, float Ma, float Mi)
 {
     float A = ((2 * v - Ma - Mi) / (Ma - Mi));
     float Acond = (v >= (Ma + Mi) / (2));
@@ -341,11 +298,10 @@ kernel void updateParticles(device Particle *particles [[buffer(1)]],
 
     uint RANDOM_STATE = CELL_HASH;
     float3 COLOR = float3(random(&RANDOM_STATE), random(&RANDOM_STATE), random(&RANDOM_STATE));
-    COLOR = CalculateDensityVisualization(particle.density, stats.MAX_GLOBAL_DENSITY); // DENSITY VISUALIZATION
-    COLOR = CalculateSpeedVisualizationV2(length(particle.velocity), stats.MAX_GLOBAL_SPEED, stats.MIN_GLOBAL_SPEED);
-    COLOR = CalculateDensityVisualizationV3(particle.density, uniform.REST_DENSITY, stats.MAX_GLOBAL_DENSITY,
-                                            stats.MIN_GLOBAL_DENSITY, 500);
-    particle.color = COLOR;
+    COLOR = CalculateSpeedVisualization(length(particle.velocity), stats.MAX_GLOBAL_SPEED, stats.MIN_GLOBAL_SPEED);
+    COLOR = CalculateDensityVisualization(particle.density, uniform.REST_DENSITY, stats.MAX_GLOBAL_DENSITY,
+                                          stats.MIN_GLOBAL_DENSITY, 500);
+    // particle.color = COLOR;
 
     float3 WEIGHT_FORCE = float3(0, -9.81 * uniform.MASS, 0);
 
@@ -385,6 +341,8 @@ kernel void updateParticles(device Particle *particles [[buffer(1)]],
                                 PRESSURE_FORCE += uniform.MASS *
                                                   (sharedNearPressure)*DerivativeSpikyPow3(sqrt(sqrdDist), uniform.H) *
                                                   (-dir) / (particles[OPID].nearDensity);
+                                VISCOSITY_FORCE += (particles[OPID].velocity - particle.velocity) *
+                                                   SmoothingKernelPoly6(sqrt(sqrdDist), uniform.H);
                             }
                         }
                     }
@@ -395,6 +353,7 @@ kernel void updateParticles(device Particle *particles [[buffer(1)]],
         particle.forces += WEIGHT_FORCE;
         particle.acceleration = particle.forces / uniform.MASS;
         particle.acceleration += -PRESSURE_FORCE / particle.density;
+        particle.velocity += VISCOSITY_FORCE * uniform.VISCOSITY * updateDeltaTime;
         particle.velocity += particle.acceleration * updateDeltaTime;
         particle.position += particle.velocity * updateDeltaTime;
 

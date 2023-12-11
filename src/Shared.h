@@ -31,6 +31,8 @@ struct Uniform {
     float GAZ_CONSTANT;
     float NEAR_GAZ_CONSTANT;
 
+    float VISCOSITY;
+
     float DUMPING_FACTOR;
     simd_float3 BOUNDING_BOX;
 };

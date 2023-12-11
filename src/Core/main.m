@@ -11,23 +11,22 @@ struct Uniform uniform;
 struct Stats stats;
 
 
-// n*a^2 = h^2*N; n = REST DENSITY : Nb/h^2 (car sur la surface mais en 3D ce sera en h^3), N = Particle Count, a =
-// bounding box length, h = smoothing radius RELATION D'EQUILIBRE
-
-struct SETTINGS initSettings() // TABLESIZE MULTIPLER IDEA
+struct SETTINGS initSettings()
 {
     struct SETTINGS settings;
     settings.dt = 1 / 60.0;
     settings.PARTICLECOUNT = 4000;
     settings.RADIUS = 0.05;
     settings.H = 0.35;
-    settings.MASS = 1; // = DENSITY
-    settings.REST_DENSITY = 10; // 20000 / (32 * 36)
-    settings.GAZ_CONSTANT = 10; // trouver une valeur stable en chrchant une acceleration maximale dans le pire des
-                                // cas, a faire sur feuille
-    settings.NEAR_GAZ_CONSTANT = 5;
-    settings.DUMPING_FACTOR = 0.95;
+    settings.MASS = 1;
+
+    settings.REST_DENSITY = 100;
+    settings.GAZ_CONSTANT = 10;
+    settings.NEAR_GAZ_CONSTANT = 10;
     settings.VISCOSITY = 0.1;
+
+
+    settings.DUMPING_FACTOR = 0.95;
     settings.BOUNDING_BOX = simd_make_float3(3, 3.0, 3.0);
     settings.COLOR = simd_make_float3(1.0, 1.0, 1.0);
     return settings;
@@ -120,6 +119,7 @@ void setup(MTKView *view)
     uniform.NEAR_GAZ_CONSTANT = SETTINGS.NEAR_GAZ_CONSTANT;
     uniform.BOUNDING_BOX = SETTINGS.BOUNDING_BOX;
     uniform.DUMPING_FACTOR = SETTINGS.DUMPING_FACTOR;
+    uniform.VISCOSITY = SETTINGS.VISCOSITY;
     uniform.SUBSTEPS = SUBSTEPSCOUNT;
     uniform.dt = SETTINGS.dt;
     engine.particleBuffer = [engine.device newBufferWithLength:sizeof(struct Particle) * SETTINGS.PARTICLECOUNT
