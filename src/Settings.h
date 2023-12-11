@@ -8,8 +8,10 @@ struct SETTINGS {
     float H;
     float MASS;
     float REST_DENSITY;
-    float GAS_CONSTANT;
+    float GAZ_CONSTANT;
+    float NEAR_GAZ_CONSTANT;
     float DUMPING_FACTOR;
+    float VISCOSITY;
     simd_float3 BOUNDING_BOX;
 };
 

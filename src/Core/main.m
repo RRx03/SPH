@@ -18,14 +18,16 @@ struct SETTINGS initSettings() // TABLESIZE MULTIPLER IDEA
 {
     struct SETTINGS settings;
     settings.dt = 1 / 60.0;
-    settings.PARTICLECOUNT = 5000;
+    settings.PARTICLECOUNT = 4000;
     settings.RADIUS = 0.05;
-    settings.H = 1 / sqrt(16);
+    settings.H = 0.35;
     settings.MASS = 1; // = DENSITY
-    settings.REST_DENSITY = 2000000 / (32 * 36); // 20000 / (32 * 36)
-    settings.GAS_CONSTANT = 0.1; // trouver une valeur stable en chrchant une acceleration maximale dans le pire des
-                                 // cas, a faire sur feuille
-    settings.DUMPING_FACTOR = 0.2;
+    settings.REST_DENSITY = 10; // 20000 / (32 * 36)
+    settings.GAZ_CONSTANT = 10; // trouver une valeur stable en chrchant une acceleration maximale dans le pire des
+                                // cas, a faire sur feuille
+    settings.NEAR_GAZ_CONSTANT = 5;
+    settings.DUMPING_FACTOR = 0.95;
+    settings.VISCOSITY = 0.1;
     settings.BOUNDING_BOX = simd_make_float3(3, 3.0, 3.0);
     settings.COLOR = simd_make_float3(1.0, 1.0, 1.0);
     return settings;
@@ -114,7 +116,8 @@ void setup(MTKView *view)
     uniform.MASS = SETTINGS.MASS;
     uniform.COLOR = SETTINGS.COLOR;
     uniform.REST_DENSITY = SETTINGS.REST_DENSITY;
-    uniform.GAS_CONSTANT = SETTINGS.GAS_CONSTANT;
+    uniform.GAZ_CONSTANT = SETTINGS.GAZ_CONSTANT;
+    uniform.NEAR_GAZ_CONSTANT = SETTINGS.NEAR_GAZ_CONSTANT;
     uniform.BOUNDING_BOX = SETTINGS.BOUNDING_BOX;
     uniform.DUMPING_FACTOR = SETTINGS.DUMPING_FACTOR;
     uniform.SUBSTEPS = SUBSTEPSCOUNT;
@@ -150,8 +153,11 @@ void draw(MTKView *view)
 
     int partialSum = 0;
     stats.MAX_GLOBAL_DENSITY = 0;
+    stats.MIN_GLOBAL_DENSITY = particlePtr[0].density;
+
     stats.MAX_GLOBAL_PRESSURE = 0;
-    stats.MIN_GLOBAL_PRESSURE = 0;
+    stats.MIN_GLOBAL_PRESSURE = particlePtr[0].pressure;
+
     stats.MAX_GLOBAL_SPEED = 0;
     stats.MIN_GLOBAL_SPEED = simd_length(particlePtr[0].velocity);
 
@@ -160,6 +166,9 @@ void draw(MTKView *view)
         tablePtr[tableID] = partialSum;
         if (stats.MAX_GLOBAL_DENSITY < particlePtr[tableID].density) {
             stats.MAX_GLOBAL_DENSITY = particlePtr[tableID].density;
+        }
+        if (stats.MIN_GLOBAL_DENSITY > particlePtr[tableID].density) {
+            stats.MIN_GLOBAL_DENSITY = particlePtr[tableID].density;
         }
         if (stats.MAX_GLOBAL_PRESSURE < particlePtr[tableID].pressure) {
             stats.MAX_GLOBAL_PRESSURE = particlePtr[tableID].pressure;

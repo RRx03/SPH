@@ -113,6 +113,26 @@ float DerivativeSpikyPow2(float dst, float radius)
     return 0;
 }
 
+float SpikyKernelPow3(float dst, float radius)
+{
+    if (dst < radius) {
+        float scale = 15 / (PI * pow(radius, 6));
+        float v = radius - dst;
+        return v * v * v * scale;
+    }
+    return 0;
+}
+
+float DerivativeSpikyPow3(float dst, float radius)
+{
+    if (dst <= radius) {
+        float scale = 45 / (pow(radius, 6) * PI);
+        float v = radius - dst;
+        return -v * v * scale;
+    }
+    return 0;
+}
+
 float CalculateProperty(float property, float density, float mass, float dist, float H)
 {
     return property * mass * SmoothingKernelPoly6(dist, H) / density;
@@ -170,6 +190,27 @@ float3 CalculatePressureVisualization(float density, float desiredDensity, float
                   (abs(pressure + targetPressure) * (pressure + targetPressure < 0) /
                    (abs(MIN_GLOBAL_PRESSURE + targetPressure) * (MIN_GLOBAL_PRESSURE + targetPressure < 0) +
                     1 * (MIN_GLOBAL_PRESSURE + targetPressure >= 0))));*/
+}
+
+float3 CalculateDensityVisualizationV2(float density, float desiredDensity, float Ma, float Mi, float threshold)
+{
+    float A = (density > desiredDensity + threshold) * (density - desiredDensity) / (Ma - desiredDensity);
+    float B = (density < desiredDensity - threshold) * (desiredDensity - density) / (desiredDensity - Mi);
+    float C = (density >= desiredDensity - threshold) * (density <= desiredDensity + threshold);
+    return float3(A, C, B);
+}
+float3 CalculateDensityVisualizationV3(float density, float desiredDensity, float Ma, float Mi, float threshold)
+
+{
+    float MaxCond = (density > desiredDensity + threshold);
+    float MinCond = (density < desiredDensity - threshold);
+    float DRPLUSCond = (density >= desiredDensity);
+    float DRMINUSCond = (density <= desiredDensity);
+    float A = density / Ma * MaxCond;
+    float B = Mi / density * MinCond;
+    float C = (desiredDensity + threshold - density) / (threshold)*DRPLUSCond * (!MaxCond) +
+              (density - desiredDensity + threshold) / (threshold)*DRMINUSCond * (!MinCond);
+    return float3(A, C, B);
 }
 
 float3 CalculateSpeedVisualization(float speed, float maxSpeed, float minSpeed)
@@ -234,7 +275,9 @@ kernel void initParticles(device Particle *particles [[buffer(1)]],
     particles[id].acceleration = float3(0, 0, 0);
     particles[id].color = uniform.COLOR;
     particles[id].density = SmoothingKernelPoly6(0, uniform.H) * uniform.MASS;
-    particles[id].pressure = uniform.GAS_CONSTANT * (particles[id].density - uniform.REST_DENSITY);
+    particles[id].nearDensity = particles[id].density;
+    particles[id].pressure = uniform.GAZ_CONSTANT * (particles[id].density - uniform.REST_DENSITY);
+    particles[id].nearPressure = particles[id].pressure;
 }
 
 kernel void CALCULATE_DENSITIES(device Particle *particles [[buffer(1)]],
@@ -248,7 +291,10 @@ kernel void CALCULATE_DENSITIES(device Particle *particles [[buffer(1)]],
     int3 CELL_COORDINATES = CELL_COORDS(particles[id].nextPosition, 2 * uniform.H);
 
     float density = 0;
-    density += SmoothingKernelPoly6(0, uniform.H) * uniform.MASS;
+    float nearDensity = 0;
+
+    density += SpikyKernelPow2(0, uniform.H) * uniform.MASS;
+    nearDensity += SpikyKernelPow3(0, 2 * uniform.H) * uniform.MASS;
 
     uint NEIGHBOURING_CELLS[27];
 
@@ -269,13 +315,16 @@ kernel void CALCULATE_DENSITIES(device Particle *particles [[buffer(1)]],
                     if (OPID != id) {
                         float Wij = SpikyKernelPow2(sqrt(sqrdDist), uniform.H);
                         density += Wij * uniform.MASS;
+                        nearDensity += SpikyKernelPow3(sqrt(sqrdDist), uniform.H) * uniform.MASS;
                     }
                 }
             }
         }
     }
     particle.density = density;
-    particle.pressure = uniform.GAS_CONSTANT * (density - uniform.REST_DENSITY);
+    particle.nearDensity = nearDensity;
+    particle.pressure = uniform.GAZ_CONSTANT * (density - uniform.REST_DENSITY);
+    particle.nearPressure = uniform.NEAR_GAZ_CONSTANT * nearDensity;
     particles[id] = particle;
 }
 
@@ -294,11 +343,14 @@ kernel void updateParticles(device Particle *particles [[buffer(1)]],
     float3 COLOR = float3(random(&RANDOM_STATE), random(&RANDOM_STATE), random(&RANDOM_STATE));
     COLOR = CalculateDensityVisualization(particle.density, stats.MAX_GLOBAL_DENSITY); // DENSITY VISUALIZATION
     COLOR = CalculateSpeedVisualizationV2(length(particle.velocity), stats.MAX_GLOBAL_SPEED, stats.MIN_GLOBAL_SPEED);
+    COLOR = CalculateDensityVisualizationV3(particle.density, uniform.REST_DENSITY, stats.MAX_GLOBAL_DENSITY,
+                                            stats.MIN_GLOBAL_DENSITY, 500);
     particle.color = COLOR;
 
     float3 WEIGHT_FORCE = float3(0, -9.81 * uniform.MASS, 0);
 
     float3 PRESSURE_FORCE = float3(0, 0, 0);
+    float3 VISCOSITY_FORCE = float3(0, 0, 0);
 
 
     float updateDeltaTime = uniform.dt / uniform.SUBSTEPS;
@@ -316,7 +368,7 @@ kernel void updateParticles(device Particle *particles [[buffer(1)]],
                 for (int NEIGHBOUR_ID = 0; NEIGHBOUR_ID < NEIGHBOURS_COUNT; NEIGHBOUR_ID++) {
                     uint OPID = DENSE_TABLE[START_INDEX + NEIGHBOUR_ID];
                     if (OPID != id) {
-                        float3 diff = particles[OPID].position - particle.position;
+                        float3 diff = particles[OPID].nextPosition - particle.nextPosition;
                         float sqrdDist = dot(diff, diff);
                         float3 dir = float3(2 * (random(&RANDOM_STATE) - 0.5), 2 * (random(&RANDOM_STATE) - 0.5),
                                             2 * (random(&RANDOM_STATE) - 0.5));
@@ -325,10 +377,14 @@ kernel void updateParticles(device Particle *particles [[buffer(1)]],
                                 dir = diff / sqrt(sqrdDist);
                             }
                             if (OPID != id) {
+                                float sharedPressure = (particle.pressure + particles[OPID].pressure) / (2);
+                                float sharedNearPressure = (particle.nearPressure + particles[OPID].nearPressure) / (2);
                                 PRESSURE_FORCE += uniform.MASS *
-                                                  (particle.pressure / pow(particle.density, 2) +
-                                                   particles[OPID].pressure / pow(particle.density, 2)) *
-                                                  DerivativeSpikyPow2(sqrt(sqrdDist), uniform.H) * (-dir);
+                                                  (sharedPressure)*DerivativeSpikyPow2(sqrt(sqrdDist), uniform.H) *
+                                                  (-dir) / (particles[OPID].density);
+                                PRESSURE_FORCE += uniform.MASS *
+                                                  (sharedNearPressure)*DerivativeSpikyPow3(sqrt(sqrdDist), uniform.H) *
+                                                  (-dir) / (particles[OPID].nearDensity);
                             }
                         }
                     }
@@ -337,15 +393,15 @@ kernel void updateParticles(device Particle *particles [[buffer(1)]],
         }
         particle.forces = float3(0, 0, 0);
         particle.forces += WEIGHT_FORCE;
-        particle.forces += -PRESSURE_FORCE;
         particle.acceleration = particle.forces / uniform.MASS;
+        particle.acceleration += -PRESSURE_FORCE / particle.density;
         particle.velocity += particle.acceleration * updateDeltaTime;
         particle.position += particle.velocity * updateDeltaTime;
 
 
         if (particle.position.y <= uniform.RADIUS) {
             particle.position.y = uniform.RADIUS;
-            particle.velocity.y *= -1 * uniform.DUMPING_FACTOR;
+            particle.velocity.y *= -1 * uniform.DUMPING_FACTOR * 0.1;
         }
         if (particle.position.x > uniform.BOUNDING_BOX.x) {
             particle.position.x = uniform.BOUNDING_BOX.x;

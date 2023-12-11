@@ -28,13 +28,15 @@ struct Uniform {
     float MASS;
 
     float REST_DENSITY;
-    float GAS_CONSTANT;
+    float GAZ_CONSTANT;
+    float NEAR_GAZ_CONSTANT;
 
     float DUMPING_FACTOR;
     simd_float3 BOUNDING_BOX;
 };
 struct Stats {
     float MAX_GLOBAL_DENSITY;
+    float MIN_GLOBAL_DENSITY;
     float MAX_GLOBAL_PRESSURE;
     float MIN_GLOBAL_PRESSURE;
     float MAX_GLOBAL_SPEED;
@@ -50,7 +52,9 @@ struct Particle {
     simd_float3 acceleration;
     simd_float3 forces;
     float density;
+    float nearDensity;
     float pressure;
+    float nearPressure;
     simd_float3 color;
 };
 
