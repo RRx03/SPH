@@ -161,7 +161,6 @@ float3 CalculateGradientProperty2(float fatherProperty,
     return fatherDensity * mass * (fatherProperty / pow(fatherDensity, 2) + property / pow(density, 2)) *
            DerivativeSmoothingKernelPoly6(dist, H) * (-dir);
 }
-
 float3 CalculateDensityVisualization(float density, float desiredDensity, float Ma, float Mi, float threshold)
 
 {
@@ -301,7 +300,7 @@ kernel void updateParticles(device Particle *particles [[buffer(1)]],
     COLOR = CalculateSpeedVisualization(length(particle.velocity), stats.MAX_GLOBAL_SPEED, stats.MIN_GLOBAL_SPEED);
     COLOR = CalculateDensityVisualization(particle.density, uniform.REST_DENSITY, stats.MAX_GLOBAL_DENSITY,
                                           stats.MIN_GLOBAL_DENSITY, 500);
-    // particle.color = COLOR;
+    particle.color = COLOR;
 
     float3 WEIGHT_FORCE = float3(0, -9.81 * uniform.MASS, 0);
 

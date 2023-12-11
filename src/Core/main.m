@@ -15,15 +15,15 @@ struct SETTINGS initSettings()
 {
     struct SETTINGS settings;
     settings.dt = 1 / 60.0;
-    settings.PARTICLECOUNT = 4000;
-    settings.RADIUS = 0.05;
+    settings.PARTICLECOUNT = 5000;
+    settings.RADIUS = 0.08;
     settings.H = 0.35;
     settings.MASS = 1;
 
     settings.REST_DENSITY = 100;
-    settings.GAZ_CONSTANT = 10;
-    settings.NEAR_GAZ_CONSTANT = 10;
-    settings.VISCOSITY = 0.1;
+    settings.GAZ_CONSTANT = 15;
+    settings.NEAR_GAZ_CONSTANT = 1;
+    settings.VISCOSITY = 0.05;
 
 
     settings.DUMPING_FACTOR = 0.95;

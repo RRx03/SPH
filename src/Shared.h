@@ -9,7 +9,7 @@
 #define WIDTH 800
 #define HEIGHT 800
 #define BUFFER_COUNT 1
-#define SUBSTEPSCOUNT 1
+#define SUBSTEPSCOUNT 3
 #define VERTEXDEFINITION 10
 #define CAMERAPOSITION 0, -3, -10
 
