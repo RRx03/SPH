@@ -23,6 +23,7 @@
 extern struct Engine engine;
 extern struct SETTINGS SETTINGS;
 extern struct Uniform uniform;
+extern struct Stats stats;
 
 void createApp();
 void setup(MTKView *view);

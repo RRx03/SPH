@@ -26,12 +26,19 @@ struct Uniform {
     float RADIUS;
     float H;
     float MASS;
+
+    float REST_DENSITY;
+    float GAS_CONSTANT;
+
+    float DUMPING_FACTOR;
+    simd_float3 BOUNDING_BOX;
+};
+struct Stats {
     float MAX_GLOBAL_DENSITY;
     float MAX_GLOBAL_PRESSURE;
     float MIN_GLOBAL_PRESSURE;
-    float REST_DENSITY;
-    float GAS_CONSTANT;
-    simd_float3 BOUNDING_BOX;
+    float MAX_GLOBAL_SPEED;
+    float MIN_GLOBAL_SPEED;
 };
 
 

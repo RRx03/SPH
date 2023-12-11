@@ -93,6 +93,25 @@ float DerivativeSmoothingKernelPoly6(float dst, float radius)
     float v = radius * radius - dst * dst;
     return (v * v * scale * dst) * (dst < radius);
 }
+float SpikyKernelPow2(float dst, float radius)
+{
+    if (dst < radius) {
+        float scale = 15 / (2 * PI * pow(radius, 5));
+        float v = radius - dst;
+        return v * v * scale;
+    }
+    return 0;
+}
+
+float DerivativeSpikyPow2(float dst, float radius)
+{
+    if (dst <= radius) {
+        float scale = 15 / (pow(radius, 5) * PI);
+        float v = radius - dst;
+        return -v * scale;
+    }
+    return 0;
+}
 
 float CalculateProperty(float property, float density, float mass, float dist, float H)
 {
@@ -122,16 +141,24 @@ float3 CalculateGradientProperty2(float fatherProperty,
     return fatherDensity * mass * (fatherProperty / pow(fatherDensity, 2) + property / pow(density, 2)) *
            DerivativeSmoothingKernelPoly6(dist, H) * (-dir);
 }
+
 float3 CalculateDensityVisualization(float density, float maxDensity)
 {
     return float3(density / maxDensity, 0, 0);
 }
-float3 CalculatePressureVisualization(float pressure,
-                                      float MAX_GLOBAL_PRESSURE,
-                                      float MIN_GLOBAL_PRESSURE,
-                                      float targetPressure)
+
+float3 CalculatePressureVisualization(float density, float desiredDensity, float threshold)
 {
-    return float3((abs(pressure - targetPressure) * (pressure - targetPressure > 0) /
+    float A =
+        (abs(density - desiredDensity) * (density - desiredDensity > 0) /
+         (abs(threshold - desiredDensity) * (threshold - desiredDensity > 0) + 1 * (threshold - desiredDensity <= 0)));
+    float B =
+        (abs(density + desiredDensity) * (density + desiredDensity < 0) /
+         (abs(threshold + desiredDensity) * (threshold + desiredDensity < 0) + 1 * (threshold + desiredDensity >= 0)));
+
+    return float3(A, (1 - (A + B)), B);
+
+    /*return float3((abs(pressure - targetPressure) * (pressure - targetPressure > 0) /
                    (abs(MAX_GLOBAL_PRESSURE - targetPressure) * (MAX_GLOBAL_PRESSURE - targetPressure > 0) +
                     1 * (MAX_GLOBAL_PRESSURE - targetPressure <= 0))),
                   (1 - ((abs(pressure - targetPressure) * (pressure - targetPressure > 0) /
@@ -142,7 +169,23 @@ float3 CalculatePressureVisualization(float pressure,
                           1 * (MIN_GLOBAL_PRESSURE + targetPressure >= 0))))),
                   (abs(pressure + targetPressure) * (pressure + targetPressure < 0) /
                    (abs(MIN_GLOBAL_PRESSURE + targetPressure) * (MIN_GLOBAL_PRESSURE + targetPressure < 0) +
-                    1 * (MIN_GLOBAL_PRESSURE + targetPressure >= 0))));
+                    1 * (MIN_GLOBAL_PRESSURE + targetPressure >= 0))));*/
+}
+
+float3 CalculateSpeedVisualization(float speed, float maxSpeed, float minSpeed)
+{
+    float A = speed / (maxSpeed + 1 * (maxSpeed == 0));
+    return float3(A, 1 - A, 0);
+}
+
+float3 CalculateSpeedVisualizationV2(float v, float Ma, float Mi)
+{
+    float A = ((2 * v - Ma - Mi) / (Ma - Mi));
+    float Acond = (v >= (Ma + Mi) / (2));
+    float C = ((2 * v - 2 * Mi) / (Ma - Mi));
+    float Ccond = (v <= (Ma + Mi) / 2);
+    float B = (1 - A) * Acond + C * Ccond;
+    return float3(A * Acond, B, (1 - C) * Ccond);
 }
 
 constant const int3 NEIGHBOURS[27] = {
@@ -154,7 +197,6 @@ constant const int3 NEIGHBOURS[27] = {
 };
 
 
-using namespace metal;
 vertex RasterizerData vertexShader(const VertexIn vertices [[stage_in]],
                                    constant Particle *particles [[buffer(1)]],
                                    constant Uniform &uniform [[buffer(10)]],
@@ -199,10 +241,11 @@ kernel void CALCULATE_DENSITIES(device Particle *particles [[buffer(1)]],
                                 constant uint *DENSE_TABLE [[buffer(3)]],
                                 constant START_INDICES_STRUCT *START_INDICES [[buffer(4)]],
                                 constant Uniform &uniform [[buffer(10)]],
+                                constant Stats &stats [[buffer(11)]],
                                 uint id [[thread_position_in_grid]])
 {
     Particle particle = particles[id];
-    int3 CELL_COORDINATES = CELL_COORDS(particles[id].position, 2 * uniform.H);
+    int3 CELL_COORDINATES = CELL_COORDS(particles[id].nextPosition, 2 * uniform.H);
 
     float density = 0;
     density += SmoothingKernelPoly6(0, uniform.H) * uniform.MASS;
@@ -220,11 +263,11 @@ kernel void CALCULATE_DENSITIES(device Particle *particles [[buffer(1)]],
         if (uint(START_INDEX) < uniform.PARTICLECOUNT) {
             for (int NEIGHBOUR_ID = 0; NEIGHBOUR_ID < NEIGHBOURS_COUNT; NEIGHBOUR_ID++) {
                 uint OPID = DENSE_TABLE[START_INDEX + NEIGHBOUR_ID];
-                float3 diff = particles[OPID].position - particle.position;
+                float3 diff = particles[OPID].nextPosition - particle.nextPosition;
                 float sqrdDist = dot(diff, diff);
                 if (sqrdDist < uniform.H * uniform.H) {
                     if (OPID != id) {
-                        float Wij = SmoothingKernelPoly6(sqrt(sqrdDist), uniform.H);
+                        float Wij = SpikyKernelPow2(sqrt(sqrdDist), uniform.H);
                         density += Wij * uniform.MASS;
                     }
                 }
@@ -240,6 +283,7 @@ kernel void updateParticles(device Particle *particles [[buffer(1)]],
                             constant uint *DENSE_TABLE [[buffer(3)]],
                             constant START_INDICES_STRUCT *START_INDICES [[buffer(4)]],
                             constant Uniform &uniform [[buffer(10)]],
+                            constant Stats &stats [[buffer(11)]],
                             uint id [[thread_position_in_grid]])
 {
     Particle particle = particles[id];
@@ -248,9 +292,8 @@ kernel void updateParticles(device Particle *particles [[buffer(1)]],
 
     uint RANDOM_STATE = CELL_HASH;
     float3 COLOR = float3(random(&RANDOM_STATE), random(&RANDOM_STATE), random(&RANDOM_STATE));
-    COLOR = CalculateDensityVisualization(particle.density, uniform.MAX_GLOBAL_DENSITY); // DENSITY VISUALIZATION
-    COLOR = CalculatePressureVisualization(particle.pressure, uniform.MAX_GLOBAL_PRESSURE, uniform.MIN_GLOBAL_PRESSURE,
-                                           uniform.REST_DENSITY); // PRESSURE VISUALIZATION
+    COLOR = CalculateDensityVisualization(particle.density, stats.MAX_GLOBAL_DENSITY); // DENSITY VISUALIZATION
+    COLOR = CalculateSpeedVisualizationV2(length(particle.velocity), stats.MAX_GLOBAL_SPEED, stats.MIN_GLOBAL_SPEED);
     particle.color = COLOR;
 
     float3 WEIGHT_FORCE = float3(0, -9.81 * uniform.MASS, 0);
@@ -278,13 +321,14 @@ kernel void updateParticles(device Particle *particles [[buffer(1)]],
                         float3 dir = float3(2 * (random(&RANDOM_STATE) - 0.5), 2 * (random(&RANDOM_STATE) - 0.5),
                                             2 * (random(&RANDOM_STATE) - 0.5));
                         if (sqrdDist < uniform.H * uniform.H) {
-                            if (sqrdDist > 0)
+                            if (sqrdDist > 0) {
                                 dir = diff / sqrt(sqrdDist);
+                            }
                             if (OPID != id) {
                                 PRESSURE_FORCE += uniform.MASS *
                                                   (particle.pressure / pow(particle.density, 2) +
                                                    particles[OPID].pressure / pow(particle.density, 2)) *
-                                                  DerivativeSmoothingKernelPoly6(sqrt(sqrdDist), uniform.H) * (-dir);
+                                                  DerivativeSpikyPow2(sqrt(sqrdDist), uniform.H) * (-dir);
                             }
                         }
                     }
@@ -297,26 +341,27 @@ kernel void updateParticles(device Particle *particles [[buffer(1)]],
         particle.acceleration = particle.forces / uniform.MASS;
         particle.velocity += particle.acceleration * updateDeltaTime;
         particle.position += particle.velocity * updateDeltaTime;
-        particle.nextPosition = particle.position + particle.velocity * updateDeltaTime;
 
 
         if (particle.position.y <= uniform.RADIUS) {
             particle.position.y = uniform.RADIUS;
+            particle.velocity.y *= -1 * uniform.DUMPING_FACTOR;
         }
         if (particle.position.x > uniform.BOUNDING_BOX.x) {
             particle.position.x = uniform.BOUNDING_BOX.x;
-            particle.velocity.x = -particle.velocity.x; // TEST
+            particle.velocity.x *= -1 * uniform.DUMPING_FACTOR;
         } else if (particle.position.x < -uniform.BOUNDING_BOX.x) {
             particle.position.x = -uniform.BOUNDING_BOX.x;
-            particle.velocity.x = -particle.velocity.x; // TEST
+            particle.velocity.x *= -1 * uniform.DUMPING_FACTOR;
         }
         if (particle.position.z > uniform.BOUNDING_BOX.z) {
             particle.position.z = uniform.BOUNDING_BOX.z;
-            particle.velocity.z = -particle.velocity.z; // TEST
+            particle.velocity.z *= -1 * uniform.DUMPING_FACTOR;
         } else if (particle.position.z < -uniform.BOUNDING_BOX.z) {
             particle.position.z = -uniform.BOUNDING_BOX.z;
-            particle.velocity.z = -particle.velocity.z; // TEST
+            particle.velocity.z *= -1 * uniform.DUMPING_FACTOR;
         }
+        particle.nextPosition = particle.position + particle.velocity * updateDeltaTime;
     }
 
 
@@ -327,6 +372,7 @@ kernel void RESET_TABLES(device uint *TABLE_ARRAY [[buffer(2)]],
                          device uint *DENSE_TABLE [[buffer(3)]],
                          device START_INDICES_STRUCT *START_INDICES [[buffer(4)]],
                          constant Uniform &uniform [[buffer(10)]],
+                         constant Stats &stats [[buffer(11)]],
                          uint id [[thread_position_in_grid]])
 {
     TABLE_ARRAY[id] = 0;
@@ -339,6 +385,7 @@ kernel void RESET_TABLES(device uint *TABLE_ARRAY [[buffer(2)]],
 kernel void INIT_TABLES(constant Particle *PARTICLES [[buffer(1)]],
                         device atomic_uint &TABLE_ARRAY [[buffer(2)]],
                         constant Uniform &uniform [[buffer(10)]],
+                        constant Stats &stats [[buffer(11)]],
                         uint particleID [[thread_position_in_grid]])
 {
     int3 cellCoords = CELL_COORDS(PARTICLES[particleID].position, 2 * uniform.H);
@@ -350,6 +397,7 @@ kernel void ASSIGN_DENSE_TABLE(constant Particle *PARTICLES [[buffer(1)]],
                                device atomic_uint &TABLE_ARRAY [[buffer(2)]],
                                device atomic_uint &DENSE_TABLE [[buffer(3)]],
                                constant Uniform &uniform [[buffer(10)]],
+                               constant Stats &stats [[buffer(11)]],
                                uint particleID [[thread_position_in_grid]])
 {
     int3 cellCoords = CELL_COORDS(PARTICLES[particleID].position, 2 * uniform.H);
