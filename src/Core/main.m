@@ -11,18 +11,19 @@ struct Uniform uniform;
 struct Stats stats;
 
 
-struct SETTINGS initSettings()
+struct SETTINGS
+initSettings() // AJOUTER CONTROLE INPUT CLAVIER ET FENETRE DE SETTINGS, ET BOUGERR LA BOUNDING BOX + CAMERA
 {
     struct SETTINGS settings;
     settings.dt = 1 / 60.0;
-    settings.PARTICLECOUNT = 5000;
+    settings.PARTICLECOUNT = 10000;
     settings.RADIUS = 0.08;
     settings.H = 0.35;
     settings.MASS = 1;
 
     settings.REST_DENSITY = 100;
     settings.GAZ_CONSTANT = 15;
-    settings.NEAR_GAZ_CONSTANT = 1;
+    settings.NEAR_GAZ_CONSTANT = 10;
     settings.VISCOSITY = 0.05;
 
 

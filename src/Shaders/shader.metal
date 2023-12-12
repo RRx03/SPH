@@ -292,24 +292,25 @@ kernel void updateParticles(device Particle *particles [[buffer(1)]],
                             uint id [[thread_position_in_grid]])
 {
     Particle particle = particles[id];
-    int3 CELL_COORDINATES = CELL_COORDS(particles[id].position, 2 * uniform.H);
-    int CELL_HASH = HASH(CELL_COORDINATES, uniform.PARTICLECOUNT);
-
-    uint RANDOM_STATE = CELL_HASH;
-    float3 COLOR = float3(random(&RANDOM_STATE), random(&RANDOM_STATE), random(&RANDOM_STATE));
-    COLOR = CalculateSpeedVisualization(length(particle.velocity), stats.MAX_GLOBAL_SPEED, stats.MIN_GLOBAL_SPEED);
-    COLOR = CalculateDensityVisualization(particle.density, uniform.REST_DENSITY, stats.MAX_GLOBAL_DENSITY,
-                                          stats.MIN_GLOBAL_DENSITY, 500);
-    particle.color = COLOR;
-
-    float3 WEIGHT_FORCE = float3(0, -9.81 * uniform.MASS, 0);
-
-    float3 PRESSURE_FORCE = float3(0, 0, 0);
-    float3 VISCOSITY_FORCE = float3(0, 0, 0);
 
 
     float updateDeltaTime = uniform.dt / uniform.SUBSTEPS;
     for (uint subStepId = 0; subStepId < uniform.SUBSTEPS; subStepId++) {
+        int3 CELL_COORDINATES = CELL_COORDS(particles[id].position, 2 * uniform.H);
+        int CELL_HASH = HASH(CELL_COORDINATES, uniform.PARTICLECOUNT);
+
+        uint RANDOM_STATE = CELL_HASH;
+        float3 COLOR = float3(random(&RANDOM_STATE), random(&RANDOM_STATE), random(&RANDOM_STATE));
+        COLOR = CalculateSpeedVisualization(length(particle.velocity), stats.MAX_GLOBAL_SPEED,
+                                            stats.MIN_GLOBAL_SPEED); // rajouter Threshold
+        // COLOR = CalculateDensityVisualization(particle.density, uniform.REST_DENSITY, stats.MAX_GLOBAL_DENSITY,
+        // stats.MIN_GLOBAL_DENSITY, 500);
+        particle.color = COLOR;
+
+        float3 WEIGHT_FORCE = float3(0, -9.81 * uniform.MASS, 0);
+        float3 PRESSURE_FORCE = float3(0, 0, 0);
+        float3 VISCOSITY_FORCE = float3(0, 0, 0);
+
         uint NEIGHBOURING_CELLS[27];
 
         for (int CELLID = 0; CELLID < 27; CELLID++) {

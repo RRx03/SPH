@@ -11,7 +11,7 @@
 #define BUFFER_COUNT 1
 #define SUBSTEPSCOUNT 3
 #define VERTEXDEFINITION 10
-#define CAMERAPOSITION 0, -3, -10
+#define CAMERAPOSITION 0, -5, -15
 
 
 #define ShaderLib01 @"shader"
