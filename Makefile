@@ -12,6 +12,7 @@ SHADER_INTER_FILES:= $(SHADER_BUILD_DIR)/*.ir
 SHADER_FILES:= ./src/Shaders/*.metal
 
 Message ?= $(shell bash -c 'read -p "Message: " message; echo $$message')
+Branch ?= $(shell bash -c 'read -p "Branch (main, 2D-Engine, 3D-Engine, 3D-Engine-Physics): " branch; echo $$branch')
 
 
 all: buildShader buildApp run
@@ -42,4 +43,4 @@ commit:
 	git commit -m "$(Message)"
 
 push :
-	git push -u origin main                    
+	git push -u origin $(Branch)

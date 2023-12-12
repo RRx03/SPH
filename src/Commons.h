@@ -21,14 +21,25 @@
 #import "Shared.h"
 
 extern struct Engine engine;
-extern struct ParticleSettings particleSettings;
+extern struct SETTINGS SETTINGS;
+extern struct Uniform uniform;
+extern struct Stats stats;
 
 void createApp();
 void setup(MTKView *view);
 void draw(MTKView *view);
 simd_int3 CellCoords(simd_float3 pos, float CELL_SIZE);
 uint hash(simd_int3 CellCoords, uint tableSize);
-
+matrix_float4x4 projectionMatrix(float FOV, float aspect, float near, float far);
+matrix_float4x4 translation(simd_float3 vec);
+void initParticles();
+void updatedt();
+void RESET_TABLES();
+void RENDER(MTKView *view);
+void UPDATE_PARTICLES();
+void INIT_TABLES();
+void ASSIGN_DENSE_TABLE();
+void CALCULATE_DENSITIES();
 
 @interface ComputePSO : NSObject
 @property (retain, readwrite, nonatomic) id<MTLComputePipelineState> computePSO;
@@ -37,23 +48,31 @@ uint hash(simd_int3 CellCoords, uint tableSize);
 // clang-format on
 @end
 
-struct Buffer {
-    id<MTLBuffer> buffer;
-    uint count;
-    uint offset;
-};
-
 
 struct Engine {
+    NSDate *start;
     id<MTLDevice> device;
     id<MTLCommandQueue> commandQueue;
     id<MTLLibrary> library;
-    id<MTLRenderPipelineState> RPSO01;
     id<MTLDepthStencilState> DepthSO;
+    id<MTLRenderPipelineState> RPSO01;
+    id<MTLComputePipelineState> CPSOinitParticles;
+    id<MTLComputePipelineState> CPSOupdateParticles;
+    id<MTLComputePipelineState> CPSOresetTables;
+    id<MTLComputePipelineState> CPSOinitTables;
+    id<MTLComputePipelineState> CPSOassignDenseTables;
+    id<MTLComputePipelineState> CPSOcalculateDensities;
+
+
     dispatch_semaphore_t Semaphore;
-    struct Buffer *particleBuffer[BUFFER_COUNT];
+    MTKMesh *mesh;
+    uint bufferIndex;
+    id<MTLBuffer> particleBuffer;
     id<MTLCommandBuffer> commandRenderBuffer[BUFFER_COUNT]; // They are both the same but one of them only for rendering
     id<MTLCommandBuffer> commandComputeBuffer[BUFFER_COUNT]; // and the other only for computing.
+    id<MTLBuffer> TABLE_ARRAY;
+    id<MTLBuffer> DENSE_TABLE;
+    id<MTLBuffer> START_INDICES;
 };
 
 void initEngine();

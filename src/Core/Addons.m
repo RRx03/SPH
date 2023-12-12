@@ -1,3 +1,6 @@
+#import <simd/matrix.h>
+#import <simd/matrix_types.h>
+#import <simd/types.h>
 #import "../Commons.h"
 
 @implementation ComputePSO
@@ -67,4 +70,27 @@ void createApp()
 
         [NSApp run];
     }
+}
+
+
+matrix_float4x4 projectionMatrix(float FOV, float aspect, float near, float far)
+{
+    float yScale = 1.0 / tan(FOV * 0.5);
+    float xScale = yScale / aspect;
+    float zRange = far - near;
+    float zScale = -(far + near) / zRange;
+    float wzScale = -2.0 * far * near / zRange;
+    matrix_float4x4 MAT;
+    MAT = simd_matrix(simd_make_float4(xScale, 0.0, 0.0, 0.0), simd_make_float4(0.0, yScale, 0.0, 0.0),
+                      simd_make_float4(0.0, 0.0, zScale, -1.0), simd_make_float4(0.0, 0.0, wzScale, 0.0));
+    return MAT;
+}
+
+matrix_float4x4 translation(simd_float3 vec)
+{
+    matrix_float4x4 matrix = matrix_identity_float4x4;
+    matrix.columns[3].x = vec.x;
+    matrix.columns[3].y = vec.y;
+    matrix.columns[3].z = vec.z;
+    return matrix;
 }

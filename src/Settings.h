@@ -1,12 +1,21 @@
 #import <Foundation/Foundation.h>
-struct ParticleSettings {
-    unsigned int particleCount;
+#import <simd/simd.h>
+struct SETTINGS {
+    float dt;
+    unsigned int PARTICLECOUNT;
+    simd_float3 COLOR;
+    float RADIUS;
+    float H;
+    float MASS;
+    float REST_DENSITY;
+    float GAZ_CONSTANT;
+    float NEAR_GAZ_CONSTANT;
+    float DUMPING_FACTOR;
+    float VISCOSITY;
+    simd_float3 BOUNDING_BOX;
 };
 
-#define WIDTH 800
-#define HEIGHT 800
-#define BUFFER_COUNT 3
-#define ShaderLib01 @"shader"
+
 /*
 Optimisation :
 -O0 a changer en -O2
