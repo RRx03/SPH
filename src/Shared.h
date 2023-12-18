@@ -1,9 +1,8 @@
+#pragma once
+
 #import <simd/matrix_types.h>
 #import <simd/simd.h>
 #import <simd/vector_types.h>
-
-
-#define PI 3.14159265358979323846
 
 
 #define WIDTH 800
@@ -11,7 +10,7 @@
 #define BUFFER_COUNT 1
 #define SUBSTEPSCOUNT 3
 #define VERTEXDEFINITION 10
-#define CAMERAPOSITION 0, -5, -15
+#define CAMERAPOSITION 0, -5, -30
 
 
 #define ShaderLib01 @"shader"
@@ -20,6 +19,7 @@ struct Uniform {
     simd_float4x4 projectionMatrix;
     simd_float4x4 viewMatrix;
     float dt;
+    float time;
     unsigned int SUBSTEPS;
     unsigned int PARTICLECOUNT;
     simd_float3 COLOR;

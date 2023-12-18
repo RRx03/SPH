@@ -40,6 +40,7 @@ void UPDATE_PARTICLES();
 void INIT_TABLES();
 void ASSIGN_DENSE_TABLE();
 void CALCULATE_DENSITIES();
+void SPATIAL_HASH();
 
 @interface ComputePSO : NSObject
 @property (retain, readwrite, nonatomic) id<MTLComputePipelineState> computePSO;
@@ -68,6 +69,8 @@ struct Engine {
     MTKMesh *mesh;
     uint bufferIndex;
     id<MTLBuffer> particleBuffer;
+    id<MTLBuffer> SECparticleBuffer;
+
     id<MTLCommandBuffer> commandRenderBuffer[BUFFER_COUNT]; // They are both the same but one of them only for rendering
     id<MTLCommandBuffer> commandComputeBuffer[BUFFER_COUNT]; // and the other only for computing.
     id<MTLBuffer> TABLE_ARRAY;

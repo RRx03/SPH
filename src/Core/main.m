@@ -11,24 +11,23 @@ struct Uniform uniform;
 struct Stats stats;
 
 
-struct SETTINGS
-initSettings() // AJOUTER CONTROLE INPUT CLAVIER ET FENETRE DE SETTINGS, ET BOUGERR LA BOUNDING BOX + CAMERA
+struct SETTINGS initSettings()
 {
     struct SETTINGS settings;
     settings.dt = 1 / 60.0;
-    settings.PARTICLECOUNT = 10000;
-    settings.RADIUS = 0.08;
-    settings.H = 0.35;
+    settings.PARTICLECOUNT = 8000;
+    settings.RADIUS = 0.1;
+    settings.H = 0.5;
     settings.MASS = 1;
 
-    settings.REST_DENSITY = 100;
-    settings.GAZ_CONSTANT = 15;
-    settings.NEAR_GAZ_CONSTANT = 10;
-    settings.VISCOSITY = 0.05;
+    settings.REST_DENSITY = 50;
+    settings.GAZ_CONSTANT = 5;
+    settings.NEAR_GAZ_CONSTANT = 3;
+    settings.VISCOSITY = 0.1;
 
 
     settings.DUMPING_FACTOR = 0.95;
-    settings.BOUNDING_BOX = simd_make_float3(3, 3.0, 3.0);
+    settings.BOUNDING_BOX = simd_make_float3(9, 3.0, 3.0);
     settings.COLOR = simd_make_float3(1.0, 1.0, 1.0);
     return settings;
 }
@@ -123,10 +122,16 @@ void setup(MTKView *view)
     uniform.VISCOSITY = SETTINGS.VISCOSITY;
     uniform.SUBSTEPS = SUBSTEPSCOUNT;
     uniform.dt = SETTINGS.dt;
+    uniform.time = 0;
     engine.particleBuffer = [engine.device newBufferWithLength:sizeof(struct Particle) * SETTINGS.PARTICLECOUNT
                                                        options:MTLResourceStorageModeShared];
+    engine.SECparticleBuffer = [engine.device newBufferWithLength:sizeof(struct Particle) * SETTINGS.PARTICLECOUNT
+                                                          options:MTLResourceStorageModeShared];
+
     engine.bufferIndex = 0;
     initParticles();
+    memcpy(engine.SECparticleBuffer.contents, engine.particleBuffer.contents,
+           sizeof(struct Particle) * SETTINGS.PARTICLECOUNT);
 }
 
 void draw(MTKView *view)
@@ -136,15 +141,73 @@ void draw(MTKView *view)
     } else {
         uniform.dt = SETTINGS.dt;
     }
+    uniform.time += uniform.dt;
 
-    // MARK: - Render
-
-    RENDER(view);
-
-    // MARK: - Update Tables
 
     CALCULATE_DENSITIES();
 
+    SPATIAL_HASH();
+
+    UPDATE_PARTICLES();
+
+    memcpy(engine.particleBuffer.contents, engine.SECparticleBuffer.contents,
+           sizeof(struct Particle) * SETTINGS.PARTICLECOUNT);
+
+    RENDER(view);
+}
+
+
+void initParticles()
+{
+    engine.commandComputeBuffer[0] = [engine.commandQueue commandBuffer];
+    id<MTLComputeCommandEncoder> computeEncoder = [engine.commandComputeBuffer[0] computeCommandEncoder];
+
+    [computeEncoder setComputePipelineState:engine.CPSOinitParticles];
+    [computeEncoder setBuffer:engine.particleBuffer offset:0 atIndex:1];
+    [computeEncoder setBuffer:engine.SECparticleBuffer offset:0 atIndex:9];
+
+    [computeEncoder setBytes:&uniform length:sizeof(struct Uniform) atIndex:10];
+    [computeEncoder dispatchThreads:MTLSizeMake(SETTINGS.PARTICLECOUNT, 1, 1)
+              threadsPerThreadgroup:MTLSizeMake(engine.CPSOinitParticles.maxTotalThreadsPerThreadgroup, 1, 1)];
+    [computeEncoder endEncoding];
+    [engine.commandComputeBuffer[0] commit];
+    [engine.commandComputeBuffer[0] waitUntilCompleted];
+}
+
+void RENDER(MTKView *view)
+{
+    engine.commandRenderBuffer[0] = [engine.commandQueue commandBuffer];
+    MTLRenderPassDescriptor *renderPassDescriptor = view.currentRenderPassDescriptor;
+
+    id<MTLRenderCommandEncoder> renderEncoder =
+        [engine.commandRenderBuffer[0] renderCommandEncoderWithDescriptor:(renderPassDescriptor)];
+
+    [renderEncoder setDepthStencilState:engine.DepthSO];
+    [renderEncoder setRenderPipelineState:engine.RPSO01];
+
+    [renderEncoder setVertexBuffer:engine.mesh.vertexBuffers[0].buffer offset:0 atIndex:0];
+    [renderEncoder setVertexBuffer:engine.particleBuffer offset:0 atIndex:1];
+
+    MTKSubmesh *submesh = engine.mesh.submeshes[0];
+    [renderEncoder setVertexBytes:&uniform length:sizeof(struct Uniform) atIndex:(10)];
+    [renderEncoder setVertexBytes:&stats length:sizeof(struct Stats) atIndex:(11)];
+
+
+    [renderEncoder drawIndexedPrimitives:MTLPrimitiveTypeTriangle
+                              indexCount:submesh.indexCount
+                               indexType:submesh.indexType
+                             indexBuffer:submesh.indexBuffer.buffer
+                       indexBufferOffset:submesh.indexBuffer.offset
+                           instanceCount:SETTINGS.PARTICLECOUNT];
+
+    [renderEncoder endEncoding];
+    [engine.commandRenderBuffer[0] presentDrawable:view.currentDrawable];
+    [engine.commandRenderBuffer[0] commit];
+    [engine.commandComputeBuffer[0] waitUntilCompleted];
+}
+
+void SPATIAL_HASH()
+{
     RESET_TABLES();
 
     INIT_TABLES();
@@ -184,7 +247,7 @@ void draw(MTKView *view)
             stats.MIN_GLOBAL_SPEED = simd_length(particlePtr[tableID].velocity);
         }
 
-        // printf("%f\n", particlePtr[tableID].density);
+        // printf("%f\n", particlePtr[0].position.x);
         // printf("%f\n", particlePtr[tableID].pressure);
     }
     // printf("\n");
@@ -214,64 +277,7 @@ void draw(MTKView *view)
     // }
     // printf("%d\n", sum);
     // printf("\n");
-
-    // MARK:
-    //     -Compute
-
-    UPDATE_PARTICLES();
-
-    // MARK: - RESET
 }
-
-
-void initParticles()
-{
-    engine.commandComputeBuffer[0] = [engine.commandQueue commandBuffer];
-    id<MTLComputeCommandEncoder> computeEncoder = [engine.commandComputeBuffer[0] computeCommandEncoder];
-
-    [computeEncoder setComputePipelineState:engine.CPSOinitParticles];
-    [computeEncoder setBuffer:engine.particleBuffer offset:0 atIndex:1];
-    [computeEncoder setBytes:&uniform length:sizeof(struct Uniform) atIndex:10];
-    [computeEncoder dispatchThreads:MTLSizeMake(SETTINGS.PARTICLECOUNT, 1, 1)
-              threadsPerThreadgroup:MTLSizeMake(engine.CPSOinitParticles.maxTotalThreadsPerThreadgroup, 1, 1)];
-    [computeEncoder endEncoding];
-    [engine.commandComputeBuffer[0] commit];
-    [engine.commandComputeBuffer[0] waitUntilCompleted];
-}
-
-
-void RENDER(MTKView *view)
-{
-    engine.commandRenderBuffer[0] = [engine.commandQueue commandBuffer];
-    MTLRenderPassDescriptor *renderPassDescriptor = view.currentRenderPassDescriptor;
-
-    id<MTLRenderCommandEncoder> renderEncoder =
-        [engine.commandRenderBuffer[0] renderCommandEncoderWithDescriptor:(renderPassDescriptor)];
-
-    [renderEncoder setDepthStencilState:engine.DepthSO];
-    [renderEncoder setRenderPipelineState:engine.RPSO01];
-
-    [renderEncoder setVertexBuffer:engine.mesh.vertexBuffers[0].buffer offset:0 atIndex:0];
-    [renderEncoder setVertexBuffer:engine.particleBuffer offset:0 atIndex:1];
-
-    MTKSubmesh *submesh = engine.mesh.submeshes[0];
-    [renderEncoder setVertexBytes:&uniform length:sizeof(struct Uniform) atIndex:(10)];
-    [renderEncoder setVertexBytes:&stats length:sizeof(struct Stats) atIndex:(11)];
-
-
-    [renderEncoder drawIndexedPrimitives:MTLPrimitiveTypeTriangle
-                              indexCount:submesh.indexCount
-                               indexType:submesh.indexType
-                             indexBuffer:submesh.indexBuffer.buffer
-                       indexBufferOffset:submesh.indexBuffer.offset
-                           instanceCount:SETTINGS.PARTICLECOUNT];
-
-    [renderEncoder endEncoding];
-    [engine.commandRenderBuffer[0] presentDrawable:view.currentDrawable];
-    [engine.commandRenderBuffer[0] commit];
-    [engine.commandComputeBuffer[0] waitUntilCompleted];
-}
-
 
 void UPDATE_PARTICLES()
 {
@@ -280,6 +286,8 @@ void UPDATE_PARTICLES()
 
     [computeEncoder setComputePipelineState:engine.CPSOupdateParticles];
     [computeEncoder setBuffer:engine.particleBuffer offset:0 atIndex:1];
+    [computeEncoder setBuffer:engine.SECparticleBuffer offset:0 atIndex:9];
+
     [computeEncoder setBuffer:engine.DENSE_TABLE offset:0 atIndex:3];
     [computeEncoder setBuffer:engine.START_INDICES offset:0 atIndex:4];
     [computeEncoder setBytes:&uniform length:sizeof(struct Uniform) atIndex:10];
@@ -299,6 +307,7 @@ void CALCULATE_DENSITIES()
 
     [computeEncoder setComputePipelineState:engine.CPSOcalculateDensities];
     [computeEncoder setBuffer:engine.particleBuffer offset:0 atIndex:1];
+    [computeEncoder setBuffer:engine.SECparticleBuffer offset:0 atIndex:9];
     [computeEncoder setBuffer:engine.DENSE_TABLE offset:0 atIndex:3];
     [computeEncoder setBuffer:engine.START_INDICES offset:0 atIndex:4];
     [computeEncoder setBytes:&uniform length:sizeof(struct Uniform) atIndex:10];
