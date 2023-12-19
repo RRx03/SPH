@@ -7,7 +7,7 @@
 
 #define WIDTH 800
 #define HEIGHT 800
-#define BUFFER_COUNT 1
+#define BUFFER_COUNT 2
 #define SUBSTEPSCOUNT 3
 #define VERTEXDEFINITION 10
 #define CAMERAPOSITION 0, -5, -30
@@ -57,6 +57,8 @@ struct Particle {
     float nearDensity;
     float pressure;
     float nearPressure;
+    simd_float3 pressureForce;
+    simd_float3 viscosityForce;
     simd_float3 color;
 };
 

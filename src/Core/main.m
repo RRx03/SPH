@@ -20,9 +20,9 @@ struct SETTINGS initSettings()
     settings.H = 0.5;
     settings.MASS = 1;
 
-    settings.REST_DENSITY = 50;
-    settings.GAZ_CONSTANT = 5;
-    settings.NEAR_GAZ_CONSTANT = 3;
+    settings.REST_DENSITY = 100;
+    settings.GAZ_CONSTANT = 3;
+    settings.NEAR_GAZ_CONSTANT = 10;
     settings.VISCOSITY = 0.1;
 
 
@@ -88,6 +88,12 @@ void setup(MTKView *view)
     engine.CPSOcalculateDensities =
         [engine.device newComputePipelineStateWithFunction:[engine.library newFunctionWithName:@"CALCULATE_DENSITIES"]
                                                      error:&error];
+    engine.CPSOcalculatePressure =
+        [engine.device newComputePipelineStateWithFunction:[engine.library newFunctionWithName:@"CALCULATE_PRESSURE"]
+                                                     error:&error];
+    engine.CPSOcalculateViscosity =
+        [engine.device newComputePipelineStateWithFunction:[engine.library newFunctionWithName:@"CALCULATE_VISCOSITY"]
+                                                     error:&error];
 
     MTLRenderPipelineDescriptor *renderPipelineDescriptor = [MTLRenderPipelineDescriptor new];
     renderPipelineDescriptor.vertexFunction = [engine.library newFunctionWithName:@"vertexShader"];
@@ -143,15 +149,16 @@ void draw(MTKView *view)
     }
     uniform.time += uniform.dt;
 
+    for (int subStep = 0; subStep < SUBSTEPSCOUNT; subStep++) {
+        CALCULATE_DATA();
 
-    CALCULATE_DENSITIES();
+        SPATIAL_HASH();
 
-    SPATIAL_HASH();
+        UPDATE_PARTICLES();
 
-    UPDATE_PARTICLES();
-
-    memcpy(engine.particleBuffer.contents, engine.SECparticleBuffer.contents,
-           sizeof(struct Particle) * SETTINGS.PARTICLECOUNT);
+        memcpy(engine.particleBuffer.contents, engine.SECparticleBuffer.contents,
+               sizeof(struct Particle) * SETTINGS.PARTICLECOUNT);
+    }
 
     RENDER(view);
 }
@@ -176,11 +183,12 @@ void initParticles()
 
 void RENDER(MTKView *view)
 {
-    engine.commandRenderBuffer[0] = [engine.commandQueue commandBuffer];
+    [engine.commandComputeBuffer[1] waitUntilCompleted];
+    engine.commandRenderBuffer[1] = [engine.commandQueue commandBuffer];
     MTLRenderPassDescriptor *renderPassDescriptor = view.currentRenderPassDescriptor;
 
     id<MTLRenderCommandEncoder> renderEncoder =
-        [engine.commandRenderBuffer[0] renderCommandEncoderWithDescriptor:(renderPassDescriptor)];
+        [engine.commandRenderBuffer[1] renderCommandEncoderWithDescriptor:(renderPassDescriptor)];
 
     [renderEncoder setDepthStencilState:engine.DepthSO];
     [renderEncoder setRenderPipelineState:engine.RPSO01];
@@ -201,9 +209,8 @@ void RENDER(MTKView *view)
                            instanceCount:SETTINGS.PARTICLECOUNT];
 
     [renderEncoder endEncoding];
-    [engine.commandRenderBuffer[0] presentDrawable:view.currentDrawable];
-    [engine.commandRenderBuffer[0] commit];
-    [engine.commandComputeBuffer[0] waitUntilCompleted];
+    [engine.commandRenderBuffer[1] presentDrawable:view.currentDrawable];
+    [engine.commandRenderBuffer[1] commit];
 }
 
 void SPATIAL_HASH()
@@ -248,9 +255,10 @@ void SPATIAL_HASH()
         }
 
         // printf("%f\n", particlePtr[0].position.x);
-        // printf("%f\n", particlePtr[tableID].pressure);
+        // printf("%f\n", particlePtr[tableID].viscosityForce.x);
     }
     // printf("\n");
+
 
     tablePtr[SETTINGS.PARTICLECOUNT] = partialSum;
 
@@ -300,7 +308,7 @@ void UPDATE_PARTICLES()
     [engine.commandComputeBuffer[0] waitUntilCompleted];
 }
 
-void CALCULATE_DENSITIES()
+void CALCULATE_DATA()
 {
     engine.commandComputeBuffer[0] = [engine.commandQueue commandBuffer];
     id<MTLComputeCommandEncoder> computeEncoder = [engine.commandComputeBuffer[0] computeCommandEncoder];
@@ -318,6 +326,49 @@ void CALCULATE_DENSITIES()
     [computeEncoder endEncoding];
     [engine.commandComputeBuffer[0] commit];
     [engine.commandComputeBuffer[0] waitUntilCompleted];
+
+    memcpy(engine.particleBuffer.contents, engine.SECparticleBuffer.contents,
+           sizeof(struct Particle) * SETTINGS.PARTICLECOUNT);
+
+    engine.commandComputeBuffer[0] = [engine.commandQueue commandBuffer];
+    computeEncoder = [engine.commandComputeBuffer[0] computeCommandEncoder];
+
+    [computeEncoder setComputePipelineState:engine.CPSOcalculatePressure];
+    [computeEncoder setBuffer:engine.particleBuffer offset:0 atIndex:1];
+    [computeEncoder setBuffer:engine.SECparticleBuffer offset:0 atIndex:9];
+    [computeEncoder setBuffer:engine.DENSE_TABLE offset:0 atIndex:3];
+    [computeEncoder setBuffer:engine.START_INDICES offset:0 atIndex:4];
+    [computeEncoder setBytes:&uniform length:sizeof(struct Uniform) atIndex:10];
+    [computeEncoder setBytes:&stats length:sizeof(struct Stats) atIndex:11];
+
+    [computeEncoder dispatchThreads:MTLSizeMake(SETTINGS.PARTICLECOUNT, 1, 1)
+              threadsPerThreadgroup:MTLSizeMake(engine.CPSOinitParticles.maxTotalThreadsPerThreadgroup, 1, 1)];
+    [computeEncoder endEncoding];
+    [engine.commandComputeBuffer[0] commit];
+    [engine.commandComputeBuffer[0] waitUntilCompleted];
+
+    memcpy(engine.particleBuffer.contents, engine.SECparticleBuffer.contents,
+           sizeof(struct Particle) * SETTINGS.PARTICLECOUNT);
+
+    engine.commandComputeBuffer[0] = [engine.commandQueue commandBuffer];
+    computeEncoder = [engine.commandComputeBuffer[0] computeCommandEncoder];
+
+    [computeEncoder setComputePipelineState:engine.CPSOcalculateViscosity];
+    [computeEncoder setBuffer:engine.particleBuffer offset:0 atIndex:1];
+    [computeEncoder setBuffer:engine.SECparticleBuffer offset:0 atIndex:9];
+    [computeEncoder setBuffer:engine.DENSE_TABLE offset:0 atIndex:3];
+    [computeEncoder setBuffer:engine.START_INDICES offset:0 atIndex:4];
+    [computeEncoder setBytes:&uniform length:sizeof(struct Uniform) atIndex:10];
+    [computeEncoder setBytes:&stats length:sizeof(struct Stats) atIndex:11];
+
+    [computeEncoder dispatchThreads:MTLSizeMake(SETTINGS.PARTICLECOUNT, 1, 1)
+              threadsPerThreadgroup:MTLSizeMake(engine.CPSOinitParticles.maxTotalThreadsPerThreadgroup, 1, 1)];
+    [computeEncoder endEncoding];
+    [engine.commandComputeBuffer[0] commit];
+    [engine.commandComputeBuffer[0] waitUntilCompleted];
+
+    memcpy(engine.particleBuffer.contents, engine.SECparticleBuffer.contents,
+           sizeof(struct Particle) * SETTINGS.PARTICLECOUNT);
 }
 
 void RESET_TABLES()

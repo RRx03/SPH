@@ -39,7 +39,7 @@ void RENDER(MTKView *view);
 void UPDATE_PARTICLES();
 void INIT_TABLES();
 void ASSIGN_DENSE_TABLE();
-void CALCULATE_DENSITIES();
+void CALCULATE_DATA();
 void SPATIAL_HASH();
 
 @interface ComputePSO : NSObject
@@ -63,6 +63,8 @@ struct Engine {
     id<MTLComputePipelineState> CPSOinitTables;
     id<MTLComputePipelineState> CPSOassignDenseTables;
     id<MTLComputePipelineState> CPSOcalculateDensities;
+    id<MTLComputePipelineState> CPSOcalculatePressure;
+    id<MTLComputePipelineState> CPSOcalculateViscosity;
 
 
     dispatch_semaphore_t Semaphore;
