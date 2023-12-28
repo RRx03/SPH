@@ -7,12 +7,15 @@ struct SETTINGS {
     float RADIUS;
     float H;
     float MASS;
-    float REST_DENSITY;
+    float TARGET_DENSITY;
     float GAZ_CONSTANT;
     float NEAR_GAZ_CONSTANT;
     float DUMPING_FACTOR;
     float VISCOSITY;
     simd_float3 BOUNDING_BOX;
+
+    float SECURITY;
+    float RESET;
 };
 
 

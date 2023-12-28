@@ -27,7 +27,7 @@ struct Uniform {
     float H;
     float MASS;
 
-    float REST_DENSITY;
+    float TARGET_DENSITY;
     float GAZ_CONSTANT;
     float NEAR_GAZ_CONSTANT;
 

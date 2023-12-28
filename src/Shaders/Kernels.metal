@@ -7,83 +7,90 @@
 
 using namespace metal;
 
-
-float W(float d, float H)
+float Poly6(float r, float h)
 {
-    return max(0.0, 315 * pow((pow(H, 2) - pow(d, 2)), 3) / (64 * 3.14 * pow(H, 9)));
+    float A = 315 / (64 * PI * pow(abs(h), 9));
+    float v = h * h - r * r;
+    return (v * v * v * A) * (r < h);
 }
-float dW(float d, float H)
+float3 GPoly6(float3 r, float h)
 {
-    return (d < H) ? -945 * d * pow((pow(H, 2) - pow(d, 2)), 2) / (32 * 3.14 * pow(H, 9)) : 0;
+    float B = 945 / (32 * PI * pow(abs(h), 9));
+    float v = h * h - pow(length(r), 2);
+    return (- r * v * v *  B) * float3(r < h);
 }
-
-float SmoothingKernelPoly6(float dst, float radius)
+float LPoly6(float r, float h)
 {
-    float scale = 315 / (64 * PI * pow(abs(radius), 9));
-    float v = radius * radius - dst * dst;
-    return (v * v * v * scale) * (dst < radius);
-}
-float ViscosityKernel(float dst, float radius)
-{
-    if (dst <= radius) {
-        return 15 / (2 * PI * pow(radius, 3)) *
-               (-(dst * dst * dst) / (2 * radius * radius * radius) + (dst * dst) / (radius * radius) +
-                radius / (2 * dst) - 1);
-    }
-    return 0;
+    float C = 945 / (32 * PI * pow(abs(h), 9));
+    float v = h * h - r * r;
+    float w = (3*h*h - 7*r*r);
+    return (- C * v * w) * (r < h);
 }
 
-float LaplacianViscosityK(float dst, float radius)
+float Spiky(float r, float h)
 {
-    if (dst <= radius) {
-        return 45 / (PI *radius*radius*radius*radius*radius*radius) * (radius - dst);
-    }
-    return 0;
-}
-float DerivativeSmoothingKernelPoly6(float dst, float radius)
-{
-    float scale = -945 / (32 * PI * pow(abs(radius), 9));
-    float v = radius * radius - dst * dst;
-    return (v * v * scale * dst) * (dst < radius);
+    float A = 15 / (PI * pow(abs(h), 6));
+    float v = h - r;
+    return (v * v * v * A) * (r < h);
 }
 
-float SpikyKernelPow2(float dst, float radius)
+float3 GSpiky(float3 r, float h)
 {
-    if (dst < radius) {
-        float scale = 15 / (2 * PI * pow(radius, 5));
-        float v = radius - dst;
-        return v * v * scale;
-    }
-    return 0;
+    float B = 45 / (PI * pow(abs(h), 6));
+    float rNorm = length(r);
+    float v = h - rNorm;
+    return (- B * (r/rNorm) * v *v ) * float3(r < h);
 }
 
-float DerivativeSpikyPow2(float dst, float radius)
+float LSpiky(float r, float h)
 {
-    if (dst <= radius) {
-        float scale = 15 / (pow(radius, 5) * PI);
-        float v = radius - dst;
-        return -v * scale;
-    }
-    return 0;
+    float C = 90 / (PI * pow(abs(h), 6));
+    float v = h - r;
+    return (- C * v * (h - 2 * r) / r) * (r < h);
 }
 
-float SpikyKernelPow3(float dst, float radius)
+float Viscosity(float r, float h)
 {
-    if (dst < radius) {
-        float scale = 15 / (PI * pow(radius, 6));
-        float v = radius - dst;
-        return v * v * v * scale;
-    }
-    return 0;
+    float A = 15 / (2 * PI * pow(abs(h), 3));
+    float a = - pow(r / h, 3) / 2;
+    float b = pow(r / h, 2);
+    float c = h / (2 * r) - 1;
+    return A*(a+b+c) * (r < h);
 }
 
-float DerivativeSpikyPow3(float dst, float radius)
+float3 GViscosity(float3 r, float h)
 {
-    if (dst <= radius) {
-        float scale = (pow(radius, 2) + pow(dst, 2) - 2*dst*radius) * 45 / (powr(radius, 1) * PI);
-        return - scale;
-    }
-    return 0;
+    float B = 15 / (2 * PI * pow(abs(h), 3));
+    float rNorm = length(r);
+    float a = - 3 * rNorm / (pow(h, 3) * 2);
+    float b = 2 / (h * h);
+    float c = - h / (2 * pow(rNorm, 3));
+    return - B * r * (a+b+c) * float3(r < h);
+}
+
+float LViscosity(float r, float h)
+{
+    float C = 45 / (2*PI * pow(abs(h), 6));
+    float v = h - r;
+    return - C * v * (r < h);
+}
+
+
+
+
+
+
+float CalculatePressure(float density, float desiredDensity, float gamma = 7.0f)
+{
+    //gamme = 7 for molten metal
+    float cs = 343;
+    return (pow(density / desiredDensity, gamma) - 1) * (pow(cs, 2) * desiredDensity / gamma);
+
+}
+float OldCalculatePressure(float density, float desiredDensity, float K)
+{
+    return K * (density - desiredDensity);
+
 }
 
 float3 CalculateDensityVisualization(float density, float desiredDensity, float Ma, float Mi, float threshold)
@@ -96,6 +103,16 @@ float3 CalculateDensityVisualization(float density, float desiredDensity, float 
     float B = Mi / density * MinCond;
     float C = (desiredDensity + threshold - density) / (threshold)*DRPLUSCond * (!MaxCond) +
               (density - desiredDensity + threshold) / (threshold)*DRMINUSCond * (!MinCond);
+    return float3(A, C, B);
+}
+
+float3 CalculatePressureVisualization(float pressure, float MAX, float MIN, float threshold)
+{
+    float OverThreshold = (pressure > threshold);
+    float UnderThreshold = (pressure < -threshold);
+    float A = (pressure-threshold) / MAX * OverThreshold;
+    float B = (pressure+threshold) / MIN * UnderThreshold;
+    float C = abs(abs(pressure)-threshold)/threshold * (!OverThreshold) * (!UnderThreshold);
     return float3(A, C, B);
 }
 

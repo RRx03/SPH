@@ -15,8 +15,10 @@ SHADER_FILES:= ./src/Shaders/shader.metal
 Message ?= $(shell bash -c 'read -p "Message: " message; echo $$message')
 Branch ?= $(shell bash -c 'read -p "Branch (main, 2D-Engine, 3D-Engine, 3D-Engine-Physics): " branch; echo $$branch')
 
+all:
+	make -j 2 gui project
 
-all: buildShader buildApp run
+project: buildShader buildApp run
 
 build: buildShader buildApp
 
@@ -46,3 +48,6 @@ commit:
 
 push :
 	git push -u origin $(Branch)
+
+gui :
+	python3 ./src/Settings/*.py

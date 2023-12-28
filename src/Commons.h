@@ -41,6 +41,7 @@ void INIT_TABLES();
 void ASSIGN_DENSE_TABLE();
 void CALCULATE_DATA();
 void SPATIAL_HASH();
+void READJSONSETTINGS();
 
 @interface ComputePSO : NSObject
 @property (retain, readwrite, nonatomic) id<MTLComputePipelineState> computePSO;
@@ -63,8 +64,7 @@ struct Engine {
     id<MTLComputePipelineState> CPSOinitTables;
     id<MTLComputePipelineState> CPSOassignDenseTables;
     id<MTLComputePipelineState> CPSOcalculateDensities;
-    id<MTLComputePipelineState> CPSOcalculatePressure;
-    id<MTLComputePipelineState> CPSOcalculateViscosity;
+    id<MTLComputePipelineState> CPSOcalculatePressureViscosity;
 
 
     dispatch_semaphore_t Semaphore;

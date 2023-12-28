@@ -16,21 +16,24 @@ struct SETTINGS initSettings()
     struct SETTINGS settings;
     settings.dt = 1 / 60.0;
     settings.PARTICLECOUNT = 8000;
-    settings.RADIUS = 0.1;
-    settings.H = 0.5;
+    settings.RADIUS = 0.2;
+    settings.H = 0.4;
     settings.MASS = 1;
 
-    settings.REST_DENSITY = 100;
-    settings.GAZ_CONSTANT = 3;
+    settings.TARGET_DENSITY = 1;
+    settings.GAZ_CONSTANT = 10;
     settings.NEAR_GAZ_CONSTANT = 10;
-    settings.VISCOSITY = 0.1;
+    settings.VISCOSITY = 1;
 
 
-    settings.DUMPING_FACTOR = 0.95;
-    settings.BOUNDING_BOX = simd_make_float3(9, 3.0, 3.0);
+    settings.DUMPING_FACTOR = 0.2;
+    settings.BOUNDING_BOX = simd_make_float3(9, 9.0, 9.0);
     settings.COLOR = simd_make_float3(1.0, 1.0, 1.0);
+    settings.SECURITY = 0;
+    settings.RESET = 0;
     return settings;
 }
+
 
 int main(int argc, const char *argv[])
 {
@@ -88,12 +91,10 @@ void setup(MTKView *view)
     engine.CPSOcalculateDensities =
         [engine.device newComputePipelineStateWithFunction:[engine.library newFunctionWithName:@"CALCULATE_DENSITIES"]
                                                      error:&error];
-    engine.CPSOcalculatePressure =
-        [engine.device newComputePipelineStateWithFunction:[engine.library newFunctionWithName:@"CALCULATE_PRESSURE"]
-                                                     error:&error];
-    engine.CPSOcalculateViscosity =
-        [engine.device newComputePipelineStateWithFunction:[engine.library newFunctionWithName:@"CALCULATE_VISCOSITY"]
-                                                     error:&error];
+    engine.CPSOcalculatePressureViscosity = [engine.device
+        newComputePipelineStateWithFunction:[engine.library newFunctionWithName:@"CALCULATE_PRESSURE_VISCOSITY"]
+                                      error:&error];
+
 
     MTLRenderPipelineDescriptor *renderPipelineDescriptor = [MTLRenderPipelineDescriptor new];
     renderPipelineDescriptor.vertexFunction = [engine.library newFunctionWithName:@"vertexShader"];
@@ -120,7 +121,6 @@ void setup(MTKView *view)
     uniform.H = SETTINGS.H;
     uniform.MASS = SETTINGS.MASS;
     uniform.COLOR = SETTINGS.COLOR;
-    uniform.REST_DENSITY = SETTINGS.REST_DENSITY;
     uniform.GAZ_CONSTANT = SETTINGS.GAZ_CONSTANT;
     uniform.NEAR_GAZ_CONSTANT = SETTINGS.NEAR_GAZ_CONSTANT;
     uniform.BOUNDING_BOX = SETTINGS.BOUNDING_BOX;
@@ -129,6 +129,7 @@ void setup(MTKView *view)
     uniform.SUBSTEPS = SUBSTEPSCOUNT;
     uniform.dt = SETTINGS.dt;
     uniform.time = 0;
+    uniform.TARGET_DENSITY = SETTINGS.TARGET_DENSITY;
     engine.particleBuffer = [engine.device newBufferWithLength:sizeof(struct Particle) * SETTINGS.PARTICLECOUNT
                                                        options:MTLResourceStorageModeShared];
     engine.SECparticleBuffer = [engine.device newBufferWithLength:sizeof(struct Particle) * SETTINGS.PARTICLECOUNT
@@ -149,6 +150,8 @@ void draw(MTKView *view)
     }
     uniform.time += uniform.dt;
 
+    READJSONSETTINGS();
+
     for (int subStep = 0; subStep < SUBSTEPSCOUNT; subStep++) {
         CALCULATE_DATA();
 
@@ -159,6 +162,7 @@ void draw(MTKView *view)
         memcpy(engine.particleBuffer.contents, engine.SECparticleBuffer.contents,
                sizeof(struct Particle) * SETTINGS.PARTICLECOUNT);
     }
+
 
     RENDER(view);
 }
@@ -333,27 +337,7 @@ void CALCULATE_DATA()
     engine.commandComputeBuffer[0] = [engine.commandQueue commandBuffer];
     computeEncoder = [engine.commandComputeBuffer[0] computeCommandEncoder];
 
-    [computeEncoder setComputePipelineState:engine.CPSOcalculatePressure];
-    [computeEncoder setBuffer:engine.particleBuffer offset:0 atIndex:1];
-    [computeEncoder setBuffer:engine.SECparticleBuffer offset:0 atIndex:9];
-    [computeEncoder setBuffer:engine.DENSE_TABLE offset:0 atIndex:3];
-    [computeEncoder setBuffer:engine.START_INDICES offset:0 atIndex:4];
-    [computeEncoder setBytes:&uniform length:sizeof(struct Uniform) atIndex:10];
-    [computeEncoder setBytes:&stats length:sizeof(struct Stats) atIndex:11];
-
-    [computeEncoder dispatchThreads:MTLSizeMake(SETTINGS.PARTICLECOUNT, 1, 1)
-              threadsPerThreadgroup:MTLSizeMake(engine.CPSOinitParticles.maxTotalThreadsPerThreadgroup, 1, 1)];
-    [computeEncoder endEncoding];
-    [engine.commandComputeBuffer[0] commit];
-    [engine.commandComputeBuffer[0] waitUntilCompleted];
-
-    memcpy(engine.particleBuffer.contents, engine.SECparticleBuffer.contents,
-           sizeof(struct Particle) * SETTINGS.PARTICLECOUNT);
-
-    engine.commandComputeBuffer[0] = [engine.commandQueue commandBuffer];
-    computeEncoder = [engine.commandComputeBuffer[0] computeCommandEncoder];
-
-    [computeEncoder setComputePipelineState:engine.CPSOcalculateViscosity];
+    [computeEncoder setComputePipelineState:engine.CPSOcalculatePressureViscosity];
     [computeEncoder setBuffer:engine.particleBuffer offset:0 atIndex:1];
     [computeEncoder setBuffer:engine.SECparticleBuffer offset:0 atIndex:9];
     [computeEncoder setBuffer:engine.DENSE_TABLE offset:0 atIndex:3];
@@ -432,4 +416,42 @@ void updatedt()
     NSTimeInterval timeInterval = [engine.start timeIntervalSinceNow];
     uniform.dt = -timeInterval;
     engine.start = [NSDate date];
+}
+
+void READJSONSETTINGS()
+{
+    NSString *path =
+        [NSString stringWithFormat:@"/Users/romanroux/Documents/CPGE/TIPE/FinalVersion/SPH/src/Settings/settings.json"];
+    NSData *data = [NSData dataWithContentsOfFile:path];
+    NSDictionary *dict = [NSJSONSerialization JSONObjectWithData:data options:kNilOptions error:nil];
+
+    if ([[dict objectForKey:@"SECURITY"] floatValue] != SETTINGS.SECURITY) {
+        if ([[dict objectForKey:@"RADIUS"] floatValue] != uniform.RADIUS) {
+            MTKMeshBufferAllocator *allocator = [[MTKMeshBufferAllocator alloc] initWithDevice:engine.device];
+
+            MDLMesh *mdlMesh =
+                [[MDLMesh alloc] initSphereWithExtent:simd_make_float3(uniform.RADIUS, uniform.RADIUS, uniform.RADIUS)
+                                             segments:simd_make_uint2(VERTEXDEFINITION, VERTEXDEFINITION)
+                                        inwardNormals:false
+                                         geometryType:MDLGeometryTypeTriangles
+                                            allocator:allocator];
+            engine.mesh = [[MTKMesh alloc] initWithMesh:mdlMesh device:engine.device error:nil];
+            uniform.RADIUS = [[dict objectForKey:@"RADIUS"] floatValue];
+        }
+        if ([[dict objectForKey:@"RESET"] floatValue] != SETTINGS.RESET) {
+            initParticles();
+            SETTINGS.RESET = [[dict objectForKey:@"RESET"] floatValue];
+        }
+        uniform.H = [[dict objectForKey:@"H"] floatValue];
+
+        uniform.TARGET_DENSITY = [[dict objectForKey:@"TARGET_DENSITY"] floatValue];
+
+        uniform.GAZ_CONSTANT = [[dict objectForKey:@"GAZ_CONSTANT"] floatValue];
+
+        uniform.NEAR_GAZ_CONSTANT = [[dict objectForKey:@"NEAR_GAZ_CONSTANT"] floatValue];
+
+        uniform.VISCOSITY = [[dict objectForKey:@"VISCOSITY"] floatValue];
+
+        SETTINGS.SECURITY = [[dict objectForKey:@"SECURITY"] integerValue];
+    }
 }
