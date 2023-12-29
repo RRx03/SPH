@@ -132,7 +132,6 @@ void initUniform()
     uniform.DUMPING_FACTOR = SETTINGS.DUMPING_FACTOR;
     uniform.VISCOSITY = SETTINGS.VISCOSITY;
     uniform.SUBSTEPS = SUBSTEPSCOUNT;
-    uniform.SECURITY = SETTINGS.SECURITY;
     uniform.dt = SETTINGS.dt;
     uniform.time = 0;
     uniform.FREQUENCY = 0;

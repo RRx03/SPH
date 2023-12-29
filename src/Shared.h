@@ -37,8 +37,6 @@ struct Uniform {
     simd_float3 BOUNDING_BOX;
     float FREQUENCY;
     float AMPLITUDE;
-
-    float SECURITY;
 };
 struct Stats {
     float MAX_GLOBAL_DENSITY;
