@@ -11,7 +11,8 @@
 
 using namespace metal;
 
-kernel void initParticles(device Particle *particles [[buffer(1)]],
+kernel void initParticles(constant Particle *particlesREAD [[buffer(1)]],
+                          device Particle *particlesWRITE [[buffer(9)]],
                           constant Uniform &uniform [[buffer(10)]],
                           uint id [[thread_position_in_grid]])
 {
@@ -19,19 +20,15 @@ kernel void initParticles(device Particle *particles [[buffer(1)]],
     float3 position =
         float3(uniform.BOUNDING_BOX.x * 2 * (random(&randomState) - 0.5), random(&randomState) * uniform.BOUNDING_BOX.y + 3,
                uniform.BOUNDING_BOX.z * 2 *(random(&randomState) - 0.5));
-    particles[id].position = position;
-    particles[id].oldPosition = position;
-    particles[id].nextPosition = position;
-    particles[id].forces = float3(0, 0, 0);
-    particles[id].velocity = float3(0, 0, 0);
-    particles[id].acceleration = float3(0, 0, 0);
-    particles[id].color = uniform.COLOR;
-    particles[id].density = 0;
-    particles[id].nearDensity = 0;
-    particles[id].pressure = 0;
-    particles[id].nearPressure = 0;
-    particles[id].pressureForce = float3(0, 0, 0);
-    particles[id].viscosityForce = float3(0, 0, 0);
+    particlesWRITE[id].position = position;
+    particlesWRITE[id].oldPosition = position;
+    particlesWRITE[id].nextPosition = position;
+    particlesWRITE[id].forces = float3(0, 0, 0);
+    particlesWRITE[id].velocity = float3(0, 0, 0);
+    particlesWRITE[id].acceleration = float3(0, 0, 0);
+    particlesWRITE[id].color = uniform.COLOR;
+    particlesWRITE[id].pressureForce = float3(0, 0, 0);
+    particlesWRITE[id].viscosityForce = float3(0, 0, 0);
 }
 
 kernel void CALCULATE_DENSITIES(constant Particle *particlesREAD [[buffer(1)]],
@@ -46,8 +43,8 @@ kernel void CALCULATE_DENSITIES(constant Particle *particlesREAD [[buffer(1)]],
     Particle particleWRITE = particlesREAD[id];
     int3 CELL_COORDINATES = CELL_COORDS(particleREAD.nextPosition, 2 * uniform.H);
 
-    particleWRITE.density = 0;
-    particleWRITE.nearDensity = 0;
+    particleWRITE.density = DensityKernel(0, uniform.H);
+    particleWRITE.nearDensity = NearDensityKernel(0, uniform.H);
 
     float sqrdH = uniform.H * uniform.H;
     uint NEIGHBOURING_CELLS[27];
@@ -62,6 +59,7 @@ kernel void CALCULATE_DENSITIES(constant Particle *particlesREAD [[buffer(1)]],
         if (uint(START_INDEX) < uniform.PARTICLECOUNT) {
             for (int NEIGHBOUR_ID = 0; NEIGHBOUR_ID < NEIGHBOURS_COUNT; NEIGHBOUR_ID++) {
                 uint OPID = DENSE_TABLE[START_INDEX + NEIGHBOUR_ID];
+                if (OPID == id) continue;
                 float3 offset = particlesREAD[OPID].nextPosition - particleREAD.nextPosition;
                 float sqrdDist = dot(offset, offset);
                 if (sqrdDist > sqrdH) continue;
@@ -124,7 +122,7 @@ kernel void CALCULATE_PRESSURE_VISCOSITY(constant Particle *particlesREAD [[buff
                 particleWRITE.pressureForce += dir * sharedPressure * DensityDerivative(dist, uniform.H) / particlesREAD[OPID].density;
                 particleWRITE.pressureForce += dir * sharedNearPressure * NearDensityDerivative(dist, uniform.H) / particlesREAD[OPID].nearDensity;
 
-                particleWRITE.viscosityForce += (particlesREAD[OPID].velocity - particleREAD.velocity) * uniform.VISCOSITY * SmoothingKernelPoly6(dist, uniform.H) / particlesREAD[OPID].density;
+                particleWRITE.viscosityForce += (particlesREAD[OPID].velocity - particleREAD.velocity) * uniform.VISCOSITY * SmoothingKernelPoly6(dist, uniform.H);
 
                 
             }
@@ -174,7 +172,7 @@ kernel void updateParticles(constant Particle *particlesREAD [[buffer(1)]],
     // COLOR = float3(random(&RANDOM_STATE), random(&RANDOM_STATE), random(&RANDOM_STATE));
     // COLOR = CalculateSpeedVisualization(length(particleREAD.velocity), stats.MAX_GLOBAL_SPEED, stats.MIN_GLOBAL_SPEED);
     // COLOR = CalculateDensityVisualization(particleREAD.density, Poly6(0, uniform.H) * uniform.MASS, stats.MAX_GLOBAL_DENSITY, stats.MIN_GLOBAL_DENSITY, 500);
-    // COLOR = CalculatePressureVisualization(particleREAD.pressure, stats.MAX_GLOBAL_PRESSURE, stats.MIN_GLOBAL_PRESSURE, 100);
+    COLOR = CalculatePressureVisualization(particleREAD.pressure, stats.MAX_GLOBAL_PRESSURE, stats.MIN_GLOBAL_PRESSURE, 100);
     particleWRITE.color = COLOR;
 
     particleWRITE.position += particleREAD.velocity * updateDeltaTime;

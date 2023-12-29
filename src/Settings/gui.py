@@ -77,7 +77,7 @@ master.configure(bg="white")
 master.grid_columnconfigure(0, weight=1)
 
 
-PARTICLECOUNT = DoubleVar()
+PARTICLECOUNT = IntVar()
 RADIUS = DoubleVar()
 H = DoubleVar()
 TARGET_DENSITY = DoubleVar()

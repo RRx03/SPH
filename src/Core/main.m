@@ -19,8 +19,8 @@ struct SETTINGS initSettings()
     settings.PARTICLECOUNT = 8000;
     settings.MASS = 1;
 
-    settings.RADIUS = 0;
-    settings.H = 0;
+    settings.RADIUS = 0.2;
+    settings.H = 1;
     settings.TARGET_DENSITY = 0;
     settings.GAZ_CONSTANT = 0;
     settings.NEAR_GAZ_CONSTANT = 0;
@@ -115,8 +115,6 @@ void setup(MTKView *view)
     initBuffers();
     initUniform();
     initParticles();
-    memcpy(engine.SECparticleBuffer.contents, engine.particleBuffer.contents,
-           sizeof(struct Particle) * SETTINGS.PARTICLECOUNT);
 }
 
 void initUniform()
@@ -134,6 +132,7 @@ void initUniform()
     uniform.DUMPING_FACTOR = SETTINGS.DUMPING_FACTOR;
     uniform.VISCOSITY = SETTINGS.VISCOSITY;
     uniform.SUBSTEPS = SUBSTEPSCOUNT;
+    uniform.SECURITY = SETTINGS.SECURITY;
     uniform.dt = SETTINGS.dt;
     uniform.time = 0;
     uniform.FREQUENCY = 0;
@@ -173,6 +172,9 @@ void initParticles()
     [computeEncoder endEncoding];
     [engine.commandComputeBuffer[0] commit];
     [engine.commandComputeBuffer[0] waitUntilCompleted];
+
+    memcpy(engine.particleBuffer.contents, engine.SECparticleBuffer.contents,
+           sizeof(struct Particle) * SETTINGS.PARTICLECOUNT);
 }
 
 void draw(MTKView *view)
