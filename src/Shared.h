@@ -35,6 +35,8 @@ struct Uniform {
 
     float DUMPING_FACTOR;
     simd_float3 BOUNDING_BOX;
+    float FREQUENCY;
+    float AMPLITUDE;
 };
 struct Stats {
     float MAX_GLOBAL_DENSITY;

@@ -15,22 +15,25 @@ struct SETTINGS initSettings()
 {
     struct SETTINGS settings;
     settings.dt = 1 / 60.0;
+    settings.MAXPARTICLECOUNT = 10000;
     settings.PARTICLECOUNT = 8000;
-    settings.RADIUS = 0.2;
-    settings.H = 0.4;
     settings.MASS = 1;
 
-    settings.TARGET_DENSITY = 1;
-    settings.GAZ_CONSTANT = 10;
-    settings.NEAR_GAZ_CONSTANT = 10;
-    settings.VISCOSITY = 1;
+    settings.RADIUS = 0;
+    settings.H = 0;
+    settings.TARGET_DENSITY = 0;
+    settings.GAZ_CONSTANT = 0;
+    settings.NEAR_GAZ_CONSTANT = 0;
+    settings.VISCOSITY = 0;
+    settings.DUMPING_FACTOR = 0;
 
-
-    settings.DUMPING_FACTOR = 0.2;
     settings.BOUNDING_BOX = simd_make_float3(9, 9.0, 9.0);
     settings.COLOR = simd_make_float3(1.0, 1.0, 1.0);
+
+
     settings.SECURITY = 0;
     settings.RESET = 0;
+
     return settings;
 }
 
@@ -106,14 +109,15 @@ void setup(MTKView *view)
 
     engine.RPSO01 = [engine.device newRenderPipelineStateWithDescriptor:renderPipelineDescriptor error:&error];
 
-    engine.TABLE_ARRAY = [engine.device newBufferWithLength:sizeof(uint) * SETTINGS.PARTICLECOUNT + 1
-                                                    options:MTLResourceStorageModeShared];
-    engine.DENSE_TABLE = [engine.device newBufferWithLength:sizeof(uint) * SETTINGS.PARTICLECOUNT
-                                                    options:MTLResourceStorageModeShared];
-    engine.START_INDICES =
-        [engine.device newBufferWithLength:sizeof(struct START_INDICES_STRUCT) * SETTINGS.PARTICLECOUNT
-                                   options:MTLResourceStorageModeShared];
+    initBuffers();
+    initUniform();
+    initParticles();
+    memcpy(engine.SECparticleBuffer.contents, engine.particleBuffer.contents,
+           sizeof(struct Particle) * SETTINGS.PARTICLECOUNT);
+}
 
+void initUniform()
+{
     uniform.projectionMatrix = projectionMatrix(70, (float)WIDTH / (float)HEIGHT, 0.1, 100);
     uniform.viewMatrix = translation(simd_make_float3(CAMERAPOSITION));
     uniform.PARTICLECOUNT = SETTINGS.PARTICLECOUNT;
@@ -129,16 +133,26 @@ void setup(MTKView *view)
     uniform.SUBSTEPS = SUBSTEPSCOUNT;
     uniform.dt = SETTINGS.dt;
     uniform.time = 0;
+    uniform.FREQUENCY = 0;
+    uniform.AMPLITUDE = 0;
     uniform.TARGET_DENSITY = SETTINGS.TARGET_DENSITY;
-    engine.particleBuffer = [engine.device newBufferWithLength:sizeof(struct Particle) * SETTINGS.PARTICLECOUNT
+}
+
+void initBuffers()
+{
+    engine.TABLE_ARRAY = [engine.device newBufferWithLength:sizeof(uint) * SETTINGS.MAXPARTICLECOUNT + 1
+                                                    options:MTLResourceStorageModeShared];
+    engine.DENSE_TABLE = [engine.device newBufferWithLength:sizeof(uint) * SETTINGS.MAXPARTICLECOUNT
+                                                    options:MTLResourceStorageModeShared];
+    engine.START_INDICES =
+        [engine.device newBufferWithLength:sizeof(struct START_INDICES_STRUCT) * SETTINGS.MAXPARTICLECOUNT
+                                   options:MTLResourceStorageModeShared];
+    engine.particleBuffer = [engine.device newBufferWithLength:sizeof(struct Particle) * SETTINGS.MAXPARTICLECOUNT
                                                        options:MTLResourceStorageModeShared];
-    engine.SECparticleBuffer = [engine.device newBufferWithLength:sizeof(struct Particle) * SETTINGS.PARTICLECOUNT
+    engine.SECparticleBuffer = [engine.device newBufferWithLength:sizeof(struct Particle) * SETTINGS.MAXPARTICLECOUNT
                                                           options:MTLResourceStorageModeShared];
 
     engine.bufferIndex = 0;
-    initParticles();
-    memcpy(engine.SECparticleBuffer.contents, engine.particleBuffer.contents,
-           sizeof(struct Particle) * SETTINGS.PARTICLECOUNT);
 }
 
 void draw(MTKView *view)
@@ -166,7 +180,6 @@ void draw(MTKView *view)
 
     RENDER(view);
 }
-
 
 void initParticles()
 {
@@ -367,7 +380,7 @@ void RESET_TABLES()
     [computeEncoder setBytes:&uniform length:sizeof(struct Uniform) atIndex:10];
     [computeEncoder setBytes:&stats length:sizeof(struct Stats) atIndex:11];
 
-    [computeEncoder dispatchThreads:MTLSizeMake(SETTINGS.PARTICLECOUNT, 1, 1)
+    [computeEncoder dispatchThreads:MTLSizeMake(SETTINGS.MAXPARTICLECOUNT, 1, 1)
               threadsPerThreadgroup:MTLSizeMake(engine.CPSOinitParticles.maxTotalThreadsPerThreadgroup, 1, 1)];
     [computeEncoder endEncoding];
     [engine.commandComputeBuffer[0] commit];
@@ -427,6 +440,8 @@ void READJSONSETTINGS()
 
     if ([[dict objectForKey:@"SECURITY"] floatValue] != SETTINGS.SECURITY) {
         if ([[dict objectForKey:@"RADIUS"] floatValue] != uniform.RADIUS) {
+            uniform.RADIUS = [[dict objectForKey:@"RADIUS"] floatValue];
+            SETTINGS.RADIUS = uniform.RADIUS;
             MTKMeshBufferAllocator *allocator = [[MTKMeshBufferAllocator alloc] initWithDevice:engine.device];
 
             MDLMesh *mdlMesh =
@@ -436,22 +451,44 @@ void READJSONSETTINGS()
                                          geometryType:MDLGeometryTypeTriangles
                                             allocator:allocator];
             engine.mesh = [[MTKMesh alloc] initWithMesh:mdlMesh device:engine.device error:nil];
-            uniform.RADIUS = [[dict objectForKey:@"RADIUS"] floatValue];
         }
-        if ([[dict objectForKey:@"RESET"] floatValue] != SETTINGS.RESET) {
-            initParticles();
-            SETTINGS.RESET = [[dict objectForKey:@"RESET"] floatValue];
-        }
+
+
         uniform.H = [[dict objectForKey:@"H"] floatValue];
+        SETTINGS.H = uniform.H;
 
         uniform.TARGET_DENSITY = [[dict objectForKey:@"TARGET_DENSITY"] floatValue];
+        SETTINGS.TARGET_DENSITY = uniform.TARGET_DENSITY;
 
         uniform.GAZ_CONSTANT = [[dict objectForKey:@"GAZ_CONSTANT"] floatValue];
+        SETTINGS.GAZ_CONSTANT = uniform.GAZ_CONSTANT;
 
         uniform.NEAR_GAZ_CONSTANT = [[dict objectForKey:@"NEAR_GAZ_CONSTANT"] floatValue];
+        SETTINGS.NEAR_GAZ_CONSTANT = uniform.NEAR_GAZ_CONSTANT;
 
         uniform.VISCOSITY = [[dict objectForKey:@"VISCOSITY"] floatValue];
+        SETTINGS.VISCOSITY = uniform.VISCOSITY;
+
+        uniform.DUMPING_FACTOR = [[dict objectForKey:@"DUMPING_FACTOR"] floatValue];
+        SETTINGS.DUMPING_FACTOR = uniform.DUMPING_FACTOR;
+
+        uniform.FREQUENCY = [[dict objectForKey:@"FREQUENCY"] floatValue];
+        SETTINGS.FREQUENCY = uniform.FREQUENCY;
+
+        uniform.AMPLITUDE = [[dict objectForKey:@"AMPLITUDE"] floatValue];
+        SETTINGS.AMPLITUDE = uniform.AMPLITUDE;
 
         SETTINGS.SECURITY = [[dict objectForKey:@"SECURITY"] integerValue];
+
+        if ([[dict objectForKey:@"PARTICLECOUNT"] integerValue] != SETTINGS.PARTICLECOUNT &&
+            [[dict objectForKey:@"PARTICLECOUNT"] integerValue] <= SETTINGS.MAXPARTICLECOUNT) {
+            SETTINGS.PARTICLECOUNT = [[dict objectForKey:@"PARTICLECOUNT"] integerValue];
+            SETTINGS.RESET = [[dict objectForKey:@"RESET"] floatValue];
+            initParticles();
+        }
+        if ([[dict objectForKey:@"RESET"] floatValue] != SETTINGS.RESET) {
+            SETTINGS.RESET = [[dict objectForKey:@"RESET"] floatValue];
+            initParticles();
+        }
     }
 }

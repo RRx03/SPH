@@ -42,6 +42,8 @@ void ASSIGN_DENSE_TABLE();
 void CALCULATE_DATA();
 void SPATIAL_HASH();
 void READJSONSETTINGS();
+void initUniform();
+void initBuffers();
 
 @interface ComputePSO : NSObject
 @property (retain, readwrite, nonatomic) id<MTLComputePipelineState> computePSO;

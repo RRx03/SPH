@@ -183,19 +183,16 @@ kernel void updateParticles(constant Particle *particlesREAD [[buffer(1)]],
     particleWRITE.position += particleWRITE.velocity * updateDeltaTime;
 
 
-    float frequency = 0.1;
-    float amplitude = 10;
-
     if (particleWRITE.position.y <= uniform.RADIUS) {
         particleWRITE.position.y = uniform.RADIUS;
         particleWRITE.velocity.y *= -1 * uniform.DUMPING_FACTOR;
     }
-    if (particleWRITE.position.x > uniform.BOUNDING_BOX.x + amplitude * abs(sin(uniform.time * PI * 2 * frequency))) {
-        particleWRITE.position.x = uniform.BOUNDING_BOX.x + amplitude * abs(sin(uniform.time * PI * 2 * frequency));
+    if (particleWRITE.position.x > uniform.BOUNDING_BOX.x + uniform.AMPLITUDE * abs(sin(uniform.time * PI * 2 * uniform.FREQUENCY))) {
+        particleWRITE.position.x = uniform.BOUNDING_BOX.x + uniform.AMPLITUDE * abs(sin(uniform.time * PI * 2 * uniform.FREQUENCY));
         particleWRITE.velocity.x *= -1 * uniform.DUMPING_FACTOR;
     } else if (particleWRITE.position.x <
-               -uniform.BOUNDING_BOX.x - amplitude * abs(sin(uniform.time * PI * 2 * frequency))) {
-        particleWRITE.position.x = -uniform.BOUNDING_BOX.x - amplitude * abs(sin(uniform.time * PI * 2 * frequency));
+               -uniform.BOUNDING_BOX.x - uniform.AMPLITUDE * abs(sin(uniform.time * PI * 2 * uniform.FREQUENCY))) {
+        particleWRITE.position.x = -uniform.BOUNDING_BOX.x - uniform.AMPLITUDE * abs(sin(uniform.time * PI * 2 * uniform.FREQUENCY));
         particleWRITE.velocity.x *= -1 * uniform.DUMPING_FACTOR;
     }
     if (particleWRITE.position.z > uniform.BOUNDING_BOX.z) {
