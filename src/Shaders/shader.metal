@@ -2,6 +2,7 @@
 #include <metal_atomic>
 #include <metal_stdlib>
 #include "Kernels.metal"
+#include "LagueKernels.metal"
 #include "Maths.metal"
 #include "Renderer.metal"
 #include "SpatialHashing.metal"
@@ -25,10 +26,10 @@ kernel void initParticles(device Particle *particles [[buffer(1)]],
     particles[id].velocity = float3(0, 0, 0);
     particles[id].acceleration = float3(0, 0, 0);
     particles[id].color = uniform.COLOR;
-    particles[id].density = Poly6(0, uniform.H) * uniform.MASS;
-    particles[id].nearDensity = particles[id].density;
+    particles[id].density = 0;
+    particles[id].nearDensity = 0;
     particles[id].pressure = 0;
-    particles[id].nearPressure = particles[id].pressure;
+    particles[id].nearPressure = 0;
     particles[id].pressureForce = float3(0, 0, 0);
     particles[id].viscosityForce = float3(0, 0, 0);
 }
@@ -43,21 +44,17 @@ kernel void CALCULATE_DENSITIES(constant Particle *particlesREAD [[buffer(1)]],
 {
     Particle particleREAD = particlesREAD[id];
     Particle particleWRITE = particlesREAD[id];
-
     int3 CELL_COORDINATES = CELL_COORDS(particleREAD.nextPosition, 2 * uniform.H);
 
-    float density = 0;
-    float nearDensity = 0;
+    particleWRITE.density = 0;
+    particleWRITE.nearDensity = 0;
 
-    density += Poly6(0, uniform.H) * uniform.MASS;
-    nearDensity += Spiky(0, uniform.H) * uniform.MASS;
-
+    float sqrdH = uniform.H * uniform.H;
     uint NEIGHBOURING_CELLS[27];
 
 
     for (int CELLID = 0; CELLID < 27; CELLID++) {
         int3 NEIGHBOURING_CELLS_COORDS = CELL_COORDINATES + NEIGHBOURS[CELLID];
-
         NEIGHBOURING_CELLS[CELLID] = HASH(NEIGHBOURING_CELLS_COORDS, uniform.PARTICLECOUNT);
         int START_INDEX = START_INDICES[NEIGHBOURING_CELLS[CELLID]].START_INDEX;
         int NEIGHBOURS_COUNT = START_INDICES[NEIGHBOURING_CELLS[CELLID]].COUNT;
@@ -65,21 +62,17 @@ kernel void CALCULATE_DENSITIES(constant Particle *particlesREAD [[buffer(1)]],
         if (uint(START_INDEX) < uniform.PARTICLECOUNT) {
             for (int NEIGHBOUR_ID = 0; NEIGHBOUR_ID < NEIGHBOURS_COUNT; NEIGHBOUR_ID++) {
                 uint OPID = DENSE_TABLE[START_INDEX + NEIGHBOUR_ID];
-                if (OPID == id)
-                    continue;
-                float3 r = particlesREAD[OPID].nextPosition - particleREAD.nextPosition;
-                float dist = length(r);
-                if (dist < uniform.H) {
-                    density += Poly6(dist, uniform.H) * uniform.MASS;
-                    nearDensity += Spiky(dist, uniform.H) * uniform.MASS;
-                }
+                float3 offset = particlesREAD[OPID].nextPosition - particleREAD.nextPosition;
+                float sqrdDist = dot(offset, offset);
+                if (sqrdDist > sqrdH) continue;
+                float dist = sqrt(sqrdDist);
+                particleWRITE.density += DensityKernel(dist, uniform.H);
+                particleWRITE.nearDensity += NearDensityKernel(dist, uniform.H);
             }
         }
     }
-    particleWRITE.density = density;
-    particleWRITE.nearDensity = nearDensity;
-    particleWRITE.pressure = OldCalculatePressure(density, uniform.TARGET_DENSITY, uniform.GAZ_CONSTANT);
-    particleWRITE.nearPressure = uniform.NEAR_GAZ_CONSTANT * particleREAD.nearDensity;
+    particleWRITE.pressure = (particleWRITE.density - uniform.TARGET_DENSITY) * uniform.GAZ_CONSTANT;
+    particleWRITE.nearPressure = uniform.NEAR_GAZ_CONSTANT * particleWRITE.nearDensity;
     particlesWRITE[id] = particleWRITE;
 }
 
@@ -94,13 +87,12 @@ kernel void CALCULATE_PRESSURE_VISCOSITY(constant Particle *particlesREAD [[buff
     Particle particleREAD = particlesREAD[id];
     Particle particleWRITE = particlesREAD[id];
 
-
+    float updateDeltaTime = uniform.dt / uniform.SUBSTEPS;
     int3 CELL_COORDINATES = CELL_COORDS(particleREAD.nextPosition, 2 * uniform.H);
-    int CELL_HASH = HASH(CELL_COORDINATES, uniform.PARTICLECOUNT);
-    uint RANDOM_STATE = CELL_HASH;
 
     particleWRITE.pressureForce = float3(0, 0, 0);
     particleWRITE.viscosityForce = float3(0, 0, 0);
+    float sqrdH = uniform.H * uniform.H;
 
 
     uint NEIGHBOURING_CELLS[27];
@@ -115,40 +107,51 @@ kernel void CALCULATE_PRESSURE_VISCOSITY(constant Particle *particlesREAD [[buff
         if (uint(START_INDEX) < uniform.PARTICLECOUNT) {
             for (int NEIGHBOUR_ID = 0; NEIGHBOUR_ID < NEIGHBOURS_COUNT; NEIGHBOUR_ID++) {
                 uint OPID = DENSE_TABLE[START_INDEX + NEIGHBOUR_ID];
-                if (OPID == id)
-                    continue;
-                float3 r = particlesREAD[OPID].nextPosition - particleREAD.nextPosition;
-                float dist = length(r);
-                float3 dir;
-                RANDOM_STATE = OPID;
-                float3 jitter = float3(random(&RANDOM_STATE)-1/2, random(&RANDOM_STATE)-1/2, random(&RANDOM_STATE)-1/2);
-                if (dist == 0) {
-                    dir = float3(2 * (random(&RANDOM_STATE) - 0.5), 2 * (random(&RANDOM_STATE) - 0.5),
-                                 2 * (random(&RANDOM_STATE) - 0.5));
-                } else {
-                    dir = r / dist + jitter;
-                }
-                if (dist < uniform.H) {
-                    dir = normalize(dir);
-                    particleWRITE.pressureForce +=
-                        uniform.MASS *
-                        ((particlesREAD[OPID].pressure + particleREAD.pressure) / (2 * particlesREAD[OPID].density)) *
-                        GSpiky(r, uniform.H);
-                    particleWRITE.pressureForce += uniform.MASS *
-                                                   ((particlesREAD[OPID].nearPressure + particleREAD.nearPressure) /
-                                                    (2 * particlesREAD[OPID].nearDensity)) *
-                                                   GSpiky(r, uniform.H);
-                    particleWRITE.viscosityForce +=
-                        uniform.MASS *
-                        ((particlesREAD[OPID].velocity - particleREAD.velocity) / particlesREAD[OPID].density) *
-                        uniform.VISCOSITY * LViscosity(dist, uniform.H);
+                if (OPID == id) continue;
 
-                    // Editer l'integration de la position, les fonction des kernels, corriger l'equation de navier
-                    // stokes, revoir le calcul de la pression avec la nouvelle fonction, ajouter tension de surface
-                }
+
+                float3 offset = particlesREAD[OPID].nextPosition - particleREAD.nextPosition;
+                float sqrdDist = dot(offset, offset);
+
+                if (sqrdDist > sqrdH) continue;
+
+                float dist = sqrt(sqrdDist);
+                float3 dir = dist == 0 ? float3(0, 1, 0) : offset / dist;
+
+                float sharedPressure = (particleREAD.pressure + particlesREAD[OPID].pressure) / 2;
+                float sharedNearPressure = (particleREAD.nearPressure + particlesREAD[OPID].nearPressure) / 2;
+
+                particleWRITE.pressureForce += dir * sharedPressure * DensityDerivative(dist, uniform.H) / particlesREAD[OPID].density;
+                particleWRITE.pressureForce += dir * sharedNearPressure * NearDensityDerivative(dist, uniform.H) / particlesREAD[OPID].nearDensity;
+
+                particleWRITE.viscosityForce += (particlesREAD[OPID].velocity - particleREAD.velocity) * uniform.VISCOSITY * SmoothingKernelPoly6(dist, uniform.H) / particlesREAD[OPID].density;
+
+                
             }
         }
     }
+    float3 acceleration = particleWRITE.pressureForce / particleREAD.density;
+    particleWRITE.velocity += (acceleration + particleWRITE.viscosityForce) * updateDeltaTime;
+    particlesWRITE[id] = particleWRITE;
+}
+
+kernel void PREDICTION(constant Particle *particlesREAD [[buffer(1)]],
+                            device Particle *particlesWRITE [[buffer(9)]],
+                            constant uint *DENSE_TABLE [[buffer(3)]],
+                            constant START_INDICES_STRUCT *START_INDICES [[buffer(4)]],
+                            constant Uniform &uniform [[buffer(10)]],
+                            constant Stats &stats [[buffer(11)]],
+                            uint id [[thread_position_in_grid]])
+{
+    Particle particleREAD = particlesREAD[id];
+    Particle particleWRITE = particlesWRITE[id];
+    float updateDeltaTime = uniform.dt / uniform.SUBSTEPS;
+
+
+    particleWRITE.velocity = particleREAD.velocity + float3(0, -9.81, 0) * updateDeltaTime;
+
+    particleWRITE.nextPosition = particleREAD.position + particleWRITE.velocity * 1/120;
+
     particlesWRITE[id] = particleWRITE;
 }
 
@@ -163,28 +166,26 @@ kernel void updateParticles(constant Particle *particlesREAD [[buffer(1)]],
     Particle particleREAD = particlesREAD[id];
     Particle particleWRITE = particlesWRITE[id];
     float updateDeltaTime = uniform.dt / uniform.SUBSTEPS;
-    int3 CELL_COORDINATES = CELL_COORDS(particlesREAD[id].position, 2 * uniform.H);
-    int CELL_HASH = HASH(CELL_COORDINATES, uniform.PARTICLECOUNT);
-
-    uint RANDOM_STATE = CELL_HASH;
     float3 COLOR = uniform.COLOR;
+
+    // int3 CELL_COORDINATES = CELL_COORDS(particlesREAD[id].position, 2 * uniform.H);
+    // int CELL_HASH = HASH(CELL_COORDINATES, uniform.PARTICLECOUNT);
+    // uint RANDOM_STATE = CELL_HASH;
     // COLOR = float3(random(&RANDOM_STATE), random(&RANDOM_STATE), random(&RANDOM_STATE));
     // COLOR = CalculateSpeedVisualization(length(particleREAD.velocity), stats.MAX_GLOBAL_SPEED, stats.MIN_GLOBAL_SPEED);
     // COLOR = CalculateDensityVisualization(particleREAD.density, Poly6(0, uniform.H) * uniform.MASS, stats.MAX_GLOBAL_DENSITY, stats.MIN_GLOBAL_DENSITY, 500);
     // COLOR = CalculatePressureVisualization(particleREAD.pressure, stats.MAX_GLOBAL_PRESSURE, stats.MIN_GLOBAL_PRESSURE, 100);
     particleWRITE.color = COLOR;
 
-
-    particleWRITE.forces = float3(0, -9.81 * particleREAD.density, 0);
-    particleWRITE.forces += particleREAD.pressureForce;
-    particleWRITE.forces += particleREAD.viscosityForce;
-    particleWRITE.acceleration = particleWRITE.forces / particleREAD.density;
-    particleWRITE.velocity += particleWRITE.acceleration * updateDeltaTime;
-    particleWRITE.position += particleWRITE.velocity * updateDeltaTime;
+    particleWRITE.position += particleREAD.velocity * updateDeltaTime;
 
 
-    if (particleWRITE.position.y <= uniform.RADIUS) {
-        particleWRITE.position.y = uniform.RADIUS;
+    if (particleWRITE.position.y <= 0) {
+        particleWRITE.position.y = 0;
+        particleWRITE.velocity.y *= -1 * uniform.DUMPING_FACTOR;
+    }
+    else if (particleWRITE.position.y >= uniform.BOUNDING_BOX.y) {
+        particleWRITE.position.y = uniform.BOUNDING_BOX.y;
         particleWRITE.velocity.y *= -1 * uniform.DUMPING_FACTOR;
     }
     if (particleWRITE.position.x > uniform.BOUNDING_BOX.x + uniform.AMPLITUDE * abs(sin(uniform.time * PI * 2 * uniform.FREQUENCY))) {
@@ -203,6 +204,5 @@ kernel void updateParticles(constant Particle *particlesREAD [[buffer(1)]],
         particleWRITE.velocity.z *= -1 * uniform.DUMPING_FACTOR;
     }
 
-    particleWRITE.nextPosition = particleWRITE.position + particleWRITE.velocity * updateDeltaTime;
     particlesWRITE[id] = particleWRITE;
 }

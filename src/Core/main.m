@@ -27,7 +27,7 @@ struct SETTINGS initSettings()
     settings.VISCOSITY = 0;
     settings.DUMPING_FACTOR = 0;
 
-    settings.BOUNDING_BOX = simd_make_float3(9, 9.0, 9.0);
+    settings.BOUNDING_BOX = simd_make_float3(9, 18.0, 9.0);
     settings.COLOR = simd_make_float3(1.0, 1.0, 1.0);
 
 
@@ -97,6 +97,9 @@ void setup(MTKView *view)
     engine.CPSOcalculatePressureViscosity = [engine.device
         newComputePipelineStateWithFunction:[engine.library newFunctionWithName:@"CALCULATE_PRESSURE_VISCOSITY"]
                                       error:&error];
+    engine.CPSOprediciton =
+        [engine.device newComputePipelineStateWithFunction:[engine.library newFunctionWithName:@"PREDICTION"]
+                                                     error:&error];
 
 
     MTLRenderPipelineDescriptor *renderPipelineDescriptor = [MTLRenderPipelineDescriptor new];
@@ -155,32 +158,6 @@ void initBuffers()
     engine.bufferIndex = 0;
 }
 
-void draw(MTKView *view)
-{
-    if (SETTINGS.dt == 0) {
-        updatedt();
-    } else {
-        uniform.dt = SETTINGS.dt;
-    }
-    uniform.time += uniform.dt;
-
-    READJSONSETTINGS();
-
-    for (int subStep = 0; subStep < SUBSTEPSCOUNT; subStep++) {
-        CALCULATE_DATA();
-
-        SPATIAL_HASH();
-
-        UPDATE_PARTICLES();
-
-        memcpy(engine.particleBuffer.contents, engine.SECparticleBuffer.contents,
-               sizeof(struct Particle) * SETTINGS.PARTICLECOUNT);
-    }
-
-
-    RENDER(view);
-}
-
 void initParticles()
 {
     engine.commandComputeBuffer[0] = [engine.commandQueue commandBuffer];
@@ -196,6 +173,29 @@ void initParticles()
     [computeEncoder endEncoding];
     [engine.commandComputeBuffer[0] commit];
     [engine.commandComputeBuffer[0] waitUntilCompleted];
+}
+
+void draw(MTKView *view)
+{
+    READJSONSETTINGS();
+
+    for (int subStep = 0; subStep < SUBSTEPSCOUNT; subStep++) {
+        PREDICT();
+
+        memcpy(engine.particleBuffer.contents, engine.SECparticleBuffer.contents,
+               sizeof(struct Particle) * SETTINGS.PARTICLECOUNT);
+
+        SPATIAL_HASH();
+
+        CALCULATE_DATA();
+
+        UPDATE_PARTICLES();
+
+        memcpy(engine.particleBuffer.contents, engine.SECparticleBuffer.contents,
+               sizeof(struct Particle) * SETTINGS.PARTICLECOUNT);
+    }
+
+    RENDER(view);
 }
 
 void RENDER(MTKView *view)
@@ -310,6 +310,27 @@ void UPDATE_PARTICLES()
     id<MTLComputeCommandEncoder> computeEncoder = [engine.commandComputeBuffer[0] computeCommandEncoder];
 
     [computeEncoder setComputePipelineState:engine.CPSOupdateParticles];
+    [computeEncoder setBuffer:engine.particleBuffer offset:0 atIndex:1];
+    [computeEncoder setBuffer:engine.SECparticleBuffer offset:0 atIndex:9];
+
+    [computeEncoder setBuffer:engine.DENSE_TABLE offset:0 atIndex:3];
+    [computeEncoder setBuffer:engine.START_INDICES offset:0 atIndex:4];
+    [computeEncoder setBytes:&uniform length:sizeof(struct Uniform) atIndex:10];
+    [computeEncoder setBytes:&stats length:sizeof(struct Stats) atIndex:11];
+
+    [computeEncoder dispatchThreads:MTLSizeMake(SETTINGS.PARTICLECOUNT, 1, 1)
+              threadsPerThreadgroup:MTLSizeMake(engine.CPSOinitParticles.maxTotalThreadsPerThreadgroup, 1, 1)];
+    [computeEncoder endEncoding];
+    [engine.commandComputeBuffer[0] commit];
+    [engine.commandComputeBuffer[0] waitUntilCompleted];
+}
+
+void PREDICT()
+{
+    engine.commandComputeBuffer[0] = [engine.commandQueue commandBuffer];
+    id<MTLComputeCommandEncoder> computeEncoder = [engine.commandComputeBuffer[0] computeCommandEncoder];
+
+    [computeEncoder setComputePipelineState:engine.CPSOprediciton];
     [computeEncoder setBuffer:engine.particleBuffer offset:0 atIndex:1];
     [computeEncoder setBuffer:engine.SECparticleBuffer offset:0 atIndex:9];
 
@@ -490,5 +511,15 @@ void READJSONSETTINGS()
             SETTINGS.RESET = [[dict objectForKey:@"RESET"] floatValue];
             initParticles();
         }
+    }
+    if ([[dict objectForKey:@"PAUSE"] integerValue] == 1) {
+        uniform.dt = 0;
+    } else {
+        if (SETTINGS.dt == 0) {
+            updatedt();
+        } else {
+            uniform.dt = SETTINGS.dt;
+        }
+        uniform.time += uniform.dt;
     }
 }

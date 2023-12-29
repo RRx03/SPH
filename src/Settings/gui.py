@@ -16,6 +16,7 @@ jsonDICO = {
     "DUMPING_FACTOR": 0.95,
     "FREQUENCY": 0.0,
     "AMPLITUDE": 0.0,
+    "PAUSE": 0,
 }
 
 packCount = 4
@@ -39,6 +40,7 @@ def setValues():
     FREQUENCY.set(jsonDICO["FREQUENCY"])
     AMPLITUDE.set(jsonDICO["AMPLITUDE"])
     PARTICLECOUNT.set(jsonDICO["PARTICLECOUNT"])
+    PAUSE.set(jsonDICO["PAUSE"])
 
 
 def updateSettings(event):
@@ -56,6 +58,7 @@ def sendUpdates():
     jsonDICO["FREQUENCY"] = FREQUENCY.get()
     jsonDICO["AMPLITUDE"] = AMPLITUDE.get()
     jsonDICO["PARTICLECOUNT"] = PARTICLECOUNT.get()
+    jsonDICO["PAUSE"] = PAUSE.get()
     jsonDICO["SECURITY"] = random()
     settings = open("./src/Settings/settings.json", "w")
     settings.write(dumps(jsonDICO))
@@ -87,6 +90,7 @@ AMPLITUDE = DoubleVar()
 DENSITYVISUAL = DoubleVar()
 PRESSUREVISUAL = DoubleVar()
 SPEEDVISUAL = DoubleVar()
+PAUSE = DoubleVar()
 
 
 currentRow = 0
@@ -260,12 +264,23 @@ master.rowconfigure(currentRow * packCount + 3, minsize=spaceSizing)
 
 
 currentRow += 1
-C1 = Checkbutton(master, text="Density", variable=DENSITYVISUAL, onvalue=1, offvalue=0).grid(row=packCount * currentRow, column=0)
-C2 = Checkbutton(master, text="Pressure", variable=PRESSUREVISUAL, onvalue=1, offvalue=0).grid(row=packCount * currentRow+1, column=0)
-C3 = Checkbutton(master, text="Velocity", variable=SPEEDVISUAL, onvalue=1, offvalue=0).grid(row=packCount * currentRow+2, column=0)
-C4 = Checkbutton(master, text="LEAPFROG", variable=None, onvalue=1, offvalue=0).grid(row=packCount * currentRow+3, column=0)
+C1 = Checkbutton(
+    master, text="Density", variable=DENSITYVISUAL, onvalue=1, offvalue=0
+).grid(row=packCount * currentRow, column=0)
+C2 = Checkbutton(
+    master, text="Pressure", variable=PRESSUREVISUAL, onvalue=1, offvalue=0
+).grid(row=packCount * currentRow + 1, column=0)
+C3 = Checkbutton(
+    master, text="Velocity", variable=SPEEDVISUAL, onvalue=1, offvalue=0
+).grid(row=packCount * currentRow + 2, column=0)
+C4 = Checkbutton(master, text="LEAPFROG", variable=None, onvalue=1, offvalue=0).grid(
+    row=packCount * currentRow + 3, column=0
+)
 
-
+currentRow += 1
+pauseButton = Checkbutton(
+    master, text="PAUSE", variable=PAUSE, onvalue=1, offvalue=0, command=sendUpdates
+).grid(row=packCount * currentRow, column=0)
 
 
 currentRow += 1
