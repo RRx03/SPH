@@ -2,17 +2,25 @@
 #import <simd/simd.h>
 struct SETTINGS {
     float dt;
+    unsigned int MAXPARTICLECOUNT;
     unsigned int PARTICLECOUNT;
     simd_float3 COLOR;
     float RADIUS;
     float H;
     float MASS;
-    float REST_DENSITY;
+    float TARGET_DENSITY;
     float GAZ_CONSTANT;
     float NEAR_GAZ_CONSTANT;
     float DUMPING_FACTOR;
     float VISCOSITY;
+    float FREQUENCY;
+    float AMPLITUDE;
     simd_float3 BOUNDING_BOX;
+
+    float SECURITY;
+    float RESET;
+    int VISUAL;
+    float THRESHOLD;
 };
 
 

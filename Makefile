@@ -7,15 +7,18 @@ APP_LINKERS:=
 APP_FRAMEWORKS:=
 APP_FILES:= ./src/Core/*.m
 
+
 SHADER_BUILD_DIR = ./src/Shaders/build
 SHADER_INTER_FILES:= $(SHADER_BUILD_DIR)/*.ir
-SHADER_FILES:= ./src/Shaders/*.metal
+SHADER_FILES:= ./src/Shaders/shader.metal
 
 Message ?= $(shell bash -c 'read -p "Message: " message; echo $$message')
 Branch ?= $(shell bash -c 'read -p "Branch (main, 2D-Engine, 3D-Engine, 3D-Engine-Physics): " branch; echo $$branch')
 
+all:
+	make -j 2 gui project
 
-all: buildShader buildApp run
+project: buildShader buildApp run
 
 build: buildShader buildApp
 
@@ -25,6 +28,7 @@ buildShader:
 	
 buildApp:
 	clang -O0 -fobjc-arc -fmodules -framework CoreGraphics -framework Metal -framework QuartzCore -framework MetalKit -framework Cocoa -o $(BUILD_DIR)/$(APP_NAME) $(APP_FILES)
+
 #-O0 means no optimization
 #-O2 means optimization
 run: 
@@ -44,3 +48,6 @@ commit:
 
 push :
 	git push -u origin $(Branch)
+
+gui :
+	python3 ./src/Settings/*.py

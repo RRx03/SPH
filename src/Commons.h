@@ -39,7 +39,12 @@ void RENDER(MTKView *view);
 void UPDATE_PARTICLES();
 void INIT_TABLES();
 void ASSIGN_DENSE_TABLE();
-void CALCULATE_DENSITIES();
+void CALCULATE_DATA();
+void SPATIAL_HASH();
+void READJSONSETTINGS();
+void initUniform();
+void initBuffers();
+void PREDICT();
 
 @interface ComputePSO : NSObject
 @property (retain, readwrite, nonatomic) id<MTLComputePipelineState> computePSO;
@@ -62,12 +67,16 @@ struct Engine {
     id<MTLComputePipelineState> CPSOinitTables;
     id<MTLComputePipelineState> CPSOassignDenseTables;
     id<MTLComputePipelineState> CPSOcalculateDensities;
+    id<MTLComputePipelineState> CPSOcalculatePressureViscosity;
+    id<MTLComputePipelineState> CPSOprediciton;
 
 
     dispatch_semaphore_t Semaphore;
     MTKMesh *mesh;
     uint bufferIndex;
     id<MTLBuffer> particleBuffer;
+    id<MTLBuffer> SECparticleBuffer;
+
     id<MTLCommandBuffer> commandRenderBuffer[BUFFER_COUNT]; // They are both the same but one of them only for rendering
     id<MTLCommandBuffer> commandComputeBuffer[BUFFER_COUNT]; // and the other only for computing.
     id<MTLBuffer> TABLE_ARRAY;

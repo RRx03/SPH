@@ -56,7 +56,7 @@ void createApp()
         NSApp.mainMenu = bar;
 
 
-        NSRect frame = NSMakeRect(400, 200, WIDTH, HEIGHT);
+        NSRect frame = NSMakeRect(0, 200, WIDTH, HEIGHT);
         NSWindow *window = [[NSWindow alloc] initWithContentRect:frame
                                                        styleMask:NSWindowStyleMaskTitled
                                                          backing:NSBackingStoreBuffered
