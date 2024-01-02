@@ -27,12 +27,14 @@ struct SETTINGS initSettings()
     settings.VISCOSITY = 0;
     settings.DUMPING_FACTOR = 0;
 
-    settings.BOUNDING_BOX = simd_make_float3(9, 18.0, 9.0);
+    settings.BOUNDING_BOX = simd_make_float3(6, 9.0, 6.0);
     settings.COLOR = simd_make_float3(1.0, 1.0, 1.0);
 
 
     settings.SECURITY = 0;
     settings.RESET = 0;
+    settings.VISUAL = 0;
+    settings.THRESHOLD = 0;
 
     return settings;
 }
@@ -136,6 +138,8 @@ void initUniform()
     uniform.time = 0;
     uniform.FREQUENCY = 0;
     uniform.AMPLITUDE = 0;
+    uniform.THRESHOLD = SETTINGS.THRESHOLD;
+    uniform.VISUAL = SETTINGS.VISUAL;
     uniform.TARGET_DENSITY = SETTINGS.TARGET_DENSITY;
 }
 
@@ -158,6 +162,8 @@ void initBuffers()
 
 void initParticles()
 {
+    stats.MAX_GLOBAL_SPEED_EVER = 0;
+
     engine.commandComputeBuffer[0] = [engine.commandQueue commandBuffer];
     id<MTLComputeCommandEncoder> computeEncoder = [engine.commandComputeBuffer[0] computeCommandEncoder];
 
@@ -270,6 +276,9 @@ void SPATIAL_HASH()
         }
         if (stats.MIN_GLOBAL_SPEED > simd_length(particlePtr[tableID].velocity)) {
             stats.MIN_GLOBAL_SPEED = simd_length(particlePtr[tableID].velocity);
+        }
+        if (stats.MAX_GLOBAL_SPEED_EVER < simd_length(particlePtr[tableID].velocity)) {
+            stats.MAX_GLOBAL_SPEED_EVER = simd_length(particlePtr[tableID].velocity);
         }
 
         // printf("%f\n", particlePtr[0].position.x);
@@ -499,6 +508,12 @@ void READJSONSETTINGS()
 
         uniform.AMPLITUDE = [[dict objectForKey:@"AMPLITUDE"] floatValue];
         SETTINGS.AMPLITUDE = uniform.AMPLITUDE;
+
+        uniform.VISUAL = [[dict objectForKey:@"VISUAL"] integerValue];
+        SETTINGS.VISUAL = uniform.VISUAL;
+
+        uniform.THRESHOLD = [[dict objectForKey:@"THRESHOLD"] floatValue];
+        SETTINGS.THRESHOLD = uniform.THRESHOLD;
 
         SETTINGS.SECURITY = [[dict objectForKey:@"SECURITY"] integerValue];
 

@@ -19,6 +19,8 @@ struct SETTINGS {
 
     float SECURITY;
     float RESET;
+    int VISUAL;
+    float THRESHOLD;
 };
 
 

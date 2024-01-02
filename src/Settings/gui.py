@@ -1,4 +1,5 @@
 from tkinter import *
+from tkinter import ttk
 from json import *
 from random import *
 
@@ -17,7 +18,11 @@ jsonDICO = {
     "FREQUENCY": 0.0,
     "AMPLITUDE": 0.0,
     "PAUSE": 0,
+    "VISUAL": 0,
+    "THRESHOLD": 100,
 }
+
+VISUALS = {"None": 0, "Density": 1, "Pressure": 2, "Velocity": 3, "CELLS": 4}
 
 packCount = 4
 spaceSizing = 10
@@ -40,6 +45,7 @@ def setValues():
     FREQUENCY.set(jsonDICO["FREQUENCY"])
     AMPLITUDE.set(jsonDICO["AMPLITUDE"])
     PARTICLECOUNT.set(jsonDICO["PARTICLECOUNT"])
+    THRESHOLD.set(jsonDICO["THRESHOLD"])
     PAUSE.set(jsonDICO["PAUSE"])
 
 
@@ -59,6 +65,7 @@ def sendUpdates():
     jsonDICO["AMPLITUDE"] = AMPLITUDE.get()
     jsonDICO["PARTICLECOUNT"] = PARTICLECOUNT.get()
     jsonDICO["PAUSE"] = PAUSE.get()
+    jsonDICO["THRESHOLD"] = THRESHOLD.get()
     jsonDICO["SECURITY"] = random()
     settings = open("./src/Settings/settings.json", "w")
     settings.write(dumps(jsonDICO))
@@ -70,11 +77,33 @@ def resetButton():
     sendUpdates()
 
 
+def visualAction(event):
+    select = C1.get()
+    jsonDICO["VISUAL"] = VISUALS[select]
+    sendUpdates()
+
+
+def KEYPRESSED(event):
+    t = event.keysym
+    if t == "Return":
+        sendUpdates()
+    elif t == "space":
+        PAUSE.set(1 - PAUSE.get())
+        sendUpdates()
+
+
+def MOUSE(event):
+    x = event.x
+    y = event.y
+
+
 master.geometry("+850+0")
 master.geometry("850x900")
 master.title("GUI")
 master.configure(bg="white")
 master.grid_columnconfigure(0, weight=1)
+master.bind("<Key>", KEYPRESSED)
+master.bind("<Motion>", MOUSE)
 
 
 PARTICLECOUNT = IntVar()
@@ -87,10 +116,8 @@ VISCOSITY = DoubleVar()
 DUMPING_FACTOR = DoubleVar()
 FREQUENCY = DoubleVar()
 AMPLITUDE = DoubleVar()
-DENSITYVISUAL = DoubleVar()
-PRESSUREVISUAL = DoubleVar()
-SPEEDVISUAL = DoubleVar()
 PAUSE = DoubleVar()
+THRESHOLD = DoubleVar()
 
 
 currentRow = 0
@@ -264,31 +291,40 @@ master.rowconfigure(currentRow * packCount + 3, minsize=spaceSizing)
 
 
 currentRow += 1
-C1 = Checkbutton(
-    master, text="Density", variable=DENSITYVISUAL, onvalue=1, offvalue=0
-).grid(row=packCount * currentRow, column=0)
-C2 = Checkbutton(
-    master, text="Pressure", variable=PRESSUREVISUAL, onvalue=1, offvalue=0
-).grid(row=packCount * currentRow + 1, column=0)
-C3 = Checkbutton(
-    master, text="Velocity", variable=SPEEDVISUAL, onvalue=1, offvalue=0
-).grid(row=packCount * currentRow + 2, column=0)
-C4 = Checkbutton(master, text="LEAPFROG", variable=None, onvalue=1, offvalue=0).grid(
-    row=packCount * currentRow + 3, column=0
-)
+C1 = ttk.Combobox(master, values=list(VISUALS.keys()), state="readonly")
+C1.grid(row=packCount * currentRow, column=0)
+C1.bind("<<ComboboxSelected>>", visualAction)
+C1.current(0)
+
 
 currentRow += 1
-pauseButton = Checkbutton(
-    master, text="PAUSE", variable=PAUSE, onvalue=1, offvalue=0, command=sendUpdates
-).grid(row=packCount * currentRow, column=0)
+Label(master, text="THRESHOLD").grid(row=packCount * currentRow, column=0)
+Scale(
+    master,
+    from_=1,
+    to=1000,
+    length=800,
+    orient=HORIZONTAL,
+    resolution=1,
+    command=updateSettings,
+    variable=THRESHOLD,
+    bg="white",
+    bd=1,
+    showvalue=0,
+    troughcolor="lightgrey",
+).grid(row=packCount * currentRow + 1, column=0)
+E2 = Entry(master, textvariable=THRESHOLD, bd=0, justify="center")
+E2.bind("<Return>", updateSettings)
+E2.grid(row=packCount * currentRow + 2, column=0)
+master.rowconfigure(currentRow * packCount + 3, minsize=spaceSizing)
 
 
 currentRow += 1
 send = Button(master, text="SEND", command=sendUpdates).grid(
-    row=currentRow * packCount, column=0
+    row=currentRow * packCount + 1, column=0
 )
 reset = Button(master, text="RESET", command=resetButton).grid(
-    row=currentRow * packCount + 1, column=0
+    row=currentRow * packCount + 2, column=0
 )
 
 setValues()

@@ -37,5 +37,6 @@ fragment float4 fragmentShader(RasterizerData in [[stage_in]])
 {
     float3 LIGHT = float3(0, -1, -1) * Q_rsqrt(dot(float3(0, -1, 1), float3(0, -1, 1)));
     float ISO = max(0.1, dot(in.normal, -LIGHT));
+    // return in.normal.xyzz * 0.5 + 0.5;
     return float4(in.color * ISO, 1);
 }

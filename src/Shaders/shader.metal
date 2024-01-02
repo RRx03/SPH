@@ -2,7 +2,6 @@
 #include <metal_atomic>
 #include <metal_stdlib>
 #include "Kernels.metal"
-#include "LagueKernels.metal"
 #include "Maths.metal"
 #include "Renderer.metal"
 #include "SpatialHashing.metal"
@@ -114,8 +113,8 @@ kernel void CALCULATE_PRESSURE_VISCOSITY(constant Particle *particlesREAD [[buff
                 if (sqrdDist > sqrdH) continue;
 
                 float dist = sqrt(sqrdDist);
-                float3 dir = dist == 0 ? float3(0, 1, 0) : offset / dist;
-
+                float3 dir = dist == 0 ? float3(0, 1, 0) : offset/dist;
+                
                 float sharedPressure = (particleREAD.pressure + particlesREAD[OPID].pressure) / 2;
                 float sharedNearPressure = (particleREAD.nearPressure + particlesREAD[OPID].nearPressure) / 2;
 
@@ -164,17 +163,17 @@ kernel void updateParticles(constant Particle *particlesREAD [[buffer(1)]],
     Particle particleREAD = particlesREAD[id];
     Particle particleWRITE = particlesWRITE[id];
     float updateDeltaTime = uniform.dt / uniform.SUBSTEPS;
-    float3 COLOR = uniform.COLOR;
+    float3 COLOR = float3(0, 0, 0);
 
-    // int3 CELL_COORDINATES = CELL_COORDS(particlesREAD[id].position, 2 * uniform.H);
-    // int CELL_HASH = HASH(CELL_COORDINATES, uniform.PARTICLECOUNT);
-    // uint RANDOM_STATE = CELL_HASH;
-    // COLOR = float3(random(&RANDOM_STATE), random(&RANDOM_STATE), random(&RANDOM_STATE));
-    // COLOR = CalculateSpeedVisualization(length(particleREAD.velocity), stats.MAX_GLOBAL_SPEED, stats.MIN_GLOBAL_SPEED);
-    // COLOR = CalculateDensityVisualization(particleREAD.density, Poly6(0, uniform.H) * uniform.MASS, stats.MAX_GLOBAL_DENSITY, stats.MIN_GLOBAL_DENSITY, 500);
-    COLOR = CalculatePressureVisualization(particleREAD.pressure, stats.MAX_GLOBAL_PRESSURE, stats.MIN_GLOBAL_PRESSURE, 100);
+    int3 CELL_COORDINATES = CELL_COORDS(particlesREAD[id].position, 2 * uniform.H);
+    int CELL_HASH = HASH(CELL_COORDINATES, uniform.PARTICLECOUNT);
+    uint RANDOM_STATE = CELL_HASH;
+    COLOR += (uniform.VISUAL == 0) * uniform.COLOR;
+    COLOR += (uniform.VISUAL == 1) * CalculateDensityVisualization(particleREAD.density, uniform.TARGET_DENSITY, stats.MAX_GLOBAL_DENSITY, stats.MIN_GLOBAL_DENSITY, uniform.THRESHOLD);
+    COLOR += (uniform.VISUAL == 2) * CalculatePressureVisualization(particleREAD.pressure, stats.MAX_GLOBAL_PRESSURE, stats.MIN_GLOBAL_PRESSURE, uniform.THRESHOLD);
+    COLOR += (uniform.VISUAL == 3) * CalculateSpeedVisualization(length(particleREAD.velocity), stats.MAX_GLOBAL_SPEED, uniform.THRESHOLD);
+    COLOR += (uniform.VISUAL == 4) * float3(random(&RANDOM_STATE), random(&RANDOM_STATE), random(&RANDOM_STATE));
     particleWRITE.color = COLOR;
-
     particleWRITE.position += particleREAD.velocity * updateDeltaTime;
 
 

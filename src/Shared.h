@@ -10,7 +10,7 @@
 #define BUFFER_COUNT 2
 #define SUBSTEPSCOUNT 3
 #define VERTEXDEFINITION 10
-#define CAMERAPOSITION 0, -5, -30
+#define CAMERAPOSITION 0, -5, -20
 
 
 #define ShaderLib01 @"shader"
@@ -26,17 +26,16 @@ struct Uniform {
     float RADIUS;
     float H;
     float MASS;
-
     float TARGET_DENSITY;
     float GAZ_CONSTANT;
     float NEAR_GAZ_CONSTANT;
-
     float VISCOSITY;
-
     float DUMPING_FACTOR;
     simd_float3 BOUNDING_BOX;
     float FREQUENCY;
     float AMPLITUDE;
+    int VISUAL;
+    float THRESHOLD;
 };
 struct Stats {
     float MAX_GLOBAL_DENSITY;
@@ -44,6 +43,7 @@ struct Stats {
     float MAX_GLOBAL_PRESSURE;
     float MIN_GLOBAL_PRESSURE;
     float MAX_GLOBAL_SPEED;
+    float MAX_GLOBAL_SPEED_EVER;
     float MIN_GLOBAL_SPEED;
 };
 

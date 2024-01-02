@@ -7,90 +7,79 @@
 
 using namespace metal;
 
-float Poly6(float r, float h)
+float SmoothingKernelPoly6(float dst, float radius)
 {
-    float A = 315 / (64 * PI * pow(abs(h), 9));
-    float v = h * h - r * r;
-    return (v * v * v * A) * (r < h);
-}
-float3 GPoly6(float3 r, float h)
-{
-    float B = 945 / (32 * PI * pow(abs(h), 9));
-    float v = h * h - pow(length(r), 2);
-    return (- r * v * v *  B) * float3(r < h);
-}
-float LPoly6(float r, float h)
-{
-    float C = 945 / (32 * PI * pow(abs(h), 9));
-    float v = h * h - r * r;
-    float w = (3*h*h - 7*r*r);
-    return (- C * v * w) * (r < h);
+	if (dst < radius)
+	{
+		float scale = 315 / (64 * PI * pow(abs(radius), 9));
+		float v = radius * radius - dst * dst;
+		return v * v * v * scale;
+	}
+	return 0;
 }
 
-float Spiky(float r, float h)
+float SpikyKernelPow3(float dst, float radius)
 {
-    float A = 15 / (PI * pow(abs(h), 6));
-    float v = h - r;
-    return (v * v * v * A) * (r < h);
+	if (dst < radius)
+	{
+		float scale = 15 / (PI * pow(radius, 6));
+		float v = radius - dst;
+		return v * v * v * scale;
+	}
+	return 0;
 }
 
-float3 GSpiky(float3 r, float h)
+float SpikyKernelPow2(float dst, float radius)
 {
-    float B = 45 / (PI * pow(abs(h), 6));
-    float rNorm = length(r);
-    float v = h - rNorm;
-    return (- B * (r/rNorm) * v *v ) * float3(r < h);
+	if (dst < radius)
+	{
+		float scale = 15 / (2 * PI * pow(radius, 5));
+		float v = radius - dst;
+		return v * v * scale;
+	}
+	return 0;
 }
 
-float LSpiky(float r, float h)
+float DerivativeSpikyPow3(float dst, float radius)
 {
-    float C = 90 / (PI * pow(abs(h), 6));
-    float v = h - r;
-    return (- C * v * (h - 2 * r) / r) * (r < h);
+	if (dst <= radius)
+	{
+		float scale = 45 / (pow(radius, 6) * PI);
+		float v = radius - dst;
+		return -v * v * scale;
+	}
+	return 0;
 }
 
-float Viscosity(float r, float h)
+float DerivativeSpikyPow2(float dst, float radius)
 {
-    float A = 15 / (2 * PI * pow(abs(h), 3));
-    float a = - pow(r / h, 3) / 2;
-    float b = pow(r / h, 2);
-    float c = h / (2 * r) - 1;
-    return A*(a+b+c) * (r < h);
+	if (dst <= radius)
+	{
+		float scale = 15 / (pow(radius, 5) * PI);
+		float v = radius - dst;
+		return -v * scale;
+	}
+	return 0;
 }
 
-float3 GViscosity(float3 r, float h)
+float DensityKernel(float dst, float radius)
 {
-    float B = 15 / (2 * PI * pow(abs(h), 3));
-    float rNorm = length(r);
-    float a = - 3 * rNorm / (pow(h, 3) * 2);
-    float b = 2 / (h * h);
-    float c = - h / (2 * pow(rNorm, 3));
-    return - B * r * (a+b+c) * float3(r < h);
+	return SpikyKernelPow2(dst, radius);
 }
 
-float LViscosity(float r, float h)
+float NearDensityKernel(float dst, float radius)
 {
-    float C = 45 / (2*PI * pow(abs(h), 6));
-    float v = h - r;
-    return - C * v * (r < h);
+	return SpikyKernelPow3(dst, radius);
 }
 
-
-
-
-
-
-float CalculatePressure(float density, float desiredDensity, float gamma = 7.0f)
+float DensityDerivative(float dst, float radius)
 {
-    //gamme = 7 for molten metal
-    float cs = 343;
-    return (pow(density / desiredDensity, gamma) - 1) * (pow(cs, 2) * desiredDensity / gamma);
-
+	return DerivativeSpikyPow2(dst, radius);
 }
-float OldCalculatePressure(float density, float desiredDensity, float K)
-{
-    return K * (density - desiredDensity);
 
+float NearDensityDerivative(float dst, float radius)
+{
+	return DerivativeSpikyPow3(dst, radius);
 }
 
 float3 CalculateDensityVisualization(float density, float desiredDensity, float Ma, float Mi, float threshold)
@@ -110,18 +99,24 @@ float3 CalculatePressureVisualization(float pressure, float MAX, float MIN, floa
 {
     float OverThreshold = (pressure > threshold);
     float UnderThreshold = (pressure < -threshold);
-    float A = (pressure-threshold) / MAX * OverThreshold;
-    float B = (pressure+threshold) / MIN * UnderThreshold;
+    float A = (pressure-threshold) / (MAX+0.0001*(MAX==0)) * OverThreshold;
+    float B = (pressure+threshold) / (MIN-0.0001*(MIN==0)) * UnderThreshold;
     float C = abs(abs(pressure)-threshold)/threshold * (!OverThreshold) * (!UnderThreshold);
     return float3(A, C, B);
 }
 
-float3 CalculateSpeedVisualization(float v, float Ma, float Mi)
+
+float3 CalculateSpeedVisualization(float vel, float MAX, float threshold)
 {
-    float A = ((2 * v - Ma - Mi) / (Ma - Mi));
-    float Acond = (v >= (Ma + Mi) / (2));
-    float C = ((2 * v - 2 * Mi) / (Ma - Mi));
-    float Ccond = (v <= (Ma + Mi) / 2);
-    float B = (1 - A) * Acond + C * Ccond;
-    return float3(A * Acond, B, (1 - C) * Ccond);
+    float3 COLORS[3] = {float3(0, 0, 1), float3(0, 1, 0), float3(1, 0, 0)};
+    
+    float MIDDLEPOINT = (MAX + threshold) / 2 ;
+    float UnderCondition = (vel < MIDDLEPOINT);
+    float OverCondition = (vel > MIDDLEPOINT);
+    float distFromMiddleNormalized = abs(vel - MIDDLEPOINT)/MIDDLEPOINT;
+    return distFromMiddleNormalized*COLORS[0] * UnderCondition + distFromMiddleNormalized*COLORS[2] * OverCondition + (1-distFromMiddleNormalized)*COLORS[1];
+    
+    
+
+    
 }
