@@ -15,7 +15,7 @@ struct SETTINGS initSettings()
 {
     struct SETTINGS settings;
     settings.dt = 1 / 60.0;
-    settings.MAXPARTICLECOUNT = 10000;
+    settings.MAXPARTICLECOUNT = 20000;
     settings.MASS = 1;
 
     settings.BOUNDING_BOX = simd_make_float3(6, 12.0, 3.0);
@@ -112,7 +112,7 @@ void initUniform()
 {
     uniform.projectionMatrix = projectionMatrix(70, (float)WIDTH / (float)HEIGHT, 0.1, 100);
     uniform.viewMatrix = translation(simd_make_float3(CAMERAPOSITION));
-    uniform.PARTICLECOUNT = SETTINGS.MAXPARTICLECOUNT;
+    uniform.PARTICLECOUNT = SETTINGS.PARTICLECOUNT;
     uniform.RADIUS = SETTINGS.RADIUS;
     uniform.H = SETTINGS.H;
     uniform.MASS = SETTINGS.MASS;
