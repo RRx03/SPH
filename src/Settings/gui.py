@@ -3,11 +3,12 @@ from tkinter import ttk
 from json import *
 from random import *
 
+# Ajouter fixed dt, et fixed fps, substepcount, boxsizing
 
 jsonDICO = {
     "SECURITY": 1,
     "RESET": 0,
-    "PARTICLECOUNT": 10000,
+    "PARTICLECOUNT": 20000,
     "RADIUS": 0.1,
     "H": 0.35,
     "TARGET_DENSITY": 300,
