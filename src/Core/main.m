@@ -16,7 +16,7 @@ struct SETTINGS initSettings()
     struct SETTINGS settings;
     settings.dt = 1 / 60.0;
     settings.MAXPARTICLECOUNT = 10000;
-    settings.PARTICLECOUNT = 8000;
+    settings.PARTICLECOUNT = 10000;
     settings.MASS = 1;
 
     settings.RADIUS = 0.2;
@@ -27,7 +27,7 @@ struct SETTINGS initSettings()
     settings.VISCOSITY = 0;
     settings.DUMPING_FACTOR = 0;
 
-    settings.BOUNDING_BOX = simd_make_float3(6, 9.0, 6.0);
+    settings.BOUNDING_BOX = simd_make_float3(6, 12.0, 3.0);
     settings.COLOR = simd_make_float3(1.0, 1.0, 1.0);
 
 
@@ -56,10 +56,9 @@ void setup(MTKView *view)
     view.depthStencilPixelFormat = MTLPixelFormatDepth32Float_Stencil8;
 
     NSError *error = nil;
-    NSString *path = [NSString
-        stringWithFormat:@"/Users/romanroux/Documents/CPGE/TIPE/FinalVersion/SPH/src/Shaders/build/%@.metallib",
-                         ShaderLib01];
-    NSURL *libraryURL = [NSURL URLWithString:path];
+    NSString *relativePath = [NSString stringWithFormat:@"src/Shaders/build/%@.metallib", ShaderLib01];
+    NSString *completePath = [NSURL fileURLWithPath:relativePath].path;
+    NSURL *libraryURL = [NSURL URLWithString:completePath];
 
     engine.start = [NSDate date];
     engine.commandQueue = [engine.device newCommandQueue];
@@ -464,9 +463,10 @@ void updatedt()
 
 void READJSONSETTINGS()
 {
-    NSString *path =
-        [NSString stringWithFormat:@"/Users/romanroux/Documents/CPGE/TIPE/FinalVersion/SPH/src/Settings/settings.json"];
-    NSData *data = [NSData dataWithContentsOfFile:path];
+    NSError *error = nil;
+    NSString *relativePath = [NSString stringWithFormat:@"src/Settings/settings.json"];
+    NSString *completePath = [NSURL fileURLWithPath:relativePath].path;
+    NSData *data = [NSData dataWithContentsOfFile:completePath];
     NSDictionary *dict = [NSJSONSerialization JSONObjectWithData:data options:kNilOptions error:nil];
 
     if ([[dict objectForKey:@"SECURITY"] floatValue] != SETTINGS.SECURITY) {
