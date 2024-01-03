@@ -17,7 +17,7 @@
 #import <sys/_types/_null.h>
 #import <unistd.h>
 
-#import "Settings.h"
+#import "Settings/Settings.h"
 #import "Shared.h"
 
 extern struct Engine engine;
