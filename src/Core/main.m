@@ -16,20 +16,10 @@ struct SETTINGS initSettings()
     struct SETTINGS settings;
     settings.dt = 1 / 60.0;
     settings.MAXPARTICLECOUNT = 10000;
-    settings.PARTICLECOUNT = 10000;
     settings.MASS = 1;
-
-    settings.RADIUS = 0.2;
-    settings.H = 1;
-    settings.TARGET_DENSITY = 0;
-    settings.GAZ_CONSTANT = 0;
-    settings.NEAR_GAZ_CONSTANT = 0;
-    settings.VISCOSITY = 0;
-    settings.DUMPING_FACTOR = 0;
 
     settings.BOUNDING_BOX = simd_make_float3(6, 12.0, 3.0);
     settings.COLOR = simd_make_float3(1.0, 1.0, 1.0);
-
 
     settings.SECURITY = 0;
     settings.RESET = 0;
@@ -38,7 +28,6 @@ struct SETTINGS initSettings()
 
     return settings;
 }
-
 
 int main(int argc, const char *argv[])
 {
@@ -114,6 +103,7 @@ void setup(MTKView *view)
     engine.RPSO01 = [engine.device newRenderPipelineStateWithDescriptor:renderPipelineDescriptor error:&error];
 
     initBuffers();
+    READJSONSETTINGS();
     initUniform();
     initParticles();
 }
@@ -122,7 +112,7 @@ void initUniform()
 {
     uniform.projectionMatrix = projectionMatrix(70, (float)WIDTH / (float)HEIGHT, 0.1, 100);
     uniform.viewMatrix = translation(simd_make_float3(CAMERAPOSITION));
-    uniform.PARTICLECOUNT = SETTINGS.PARTICLECOUNT;
+    uniform.PARTICLECOUNT = SETTINGS.MAXPARTICLECOUNT;
     uniform.RADIUS = SETTINGS.RADIUS;
     uniform.H = SETTINGS.H;
     uniform.MASS = SETTINGS.MASS;
@@ -519,7 +509,8 @@ void READJSONSETTINGS()
 
         if ([[dict objectForKey:@"PARTICLECOUNT"] integerValue] != SETTINGS.PARTICLECOUNT &&
             [[dict objectForKey:@"PARTICLECOUNT"] integerValue] <= SETTINGS.MAXPARTICLECOUNT) {
-            SETTINGS.PARTICLECOUNT = [[dict objectForKey:@"PARTICLECOUNT"] integerValue];
+            uniform.PARTICLECOUNT = [[dict objectForKey:@"PARTICLECOUNT"] integerValue];
+            SETTINGS.PARTICLECOUNT = uniform.PARTICLECOUNT;
             SETTINGS.RESET = [[dict objectForKey:@"RESET"] floatValue];
             initParticles();
         }
