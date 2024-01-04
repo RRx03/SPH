@@ -110,7 +110,7 @@ void setup(MTKView *view)
     READJSONSETTINGS();
     initUniform();
     initParticles();
-    initCapture();
+    // initCapture();
 }
 
 void initUniform()
