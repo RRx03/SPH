@@ -45,9 +45,11 @@ run:
 clean:
 	rm -rf $(BUILD_DIR)/*
 	rm -rf $(SHADER_BUILD_DIR)/*
+
+cleanAnalyse:
 	rm -rf $(ANALYSE_DIR)/*
 
-git: clean add commit push
+git: cleanAnalyse add commit push
 
 add: 
 	git add .
@@ -70,7 +72,7 @@ killPID :
 
 analyse :
 	make buildAll
-	rm -rf $(ANALYSE_DIR)/*
+	cleanAnalyse
 	xctrace record --template "Game Performance" --instrument "Allocations" --launch $(BUILD_DIR)/$(APP_NAME) --output ./analysis/analysisPerf.trace --time-limit 5s
 	make open
 	make killPID
