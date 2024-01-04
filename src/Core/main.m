@@ -1,4 +1,5 @@
 #include <Foundation/Foundation.h>
+#include <Metal/Metal.h>
 #include <simd/vector_make.h>
 #include <simd/vector_types.h>
 #include <stdbool.h>
@@ -26,6 +27,7 @@ struct SETTINGS initSettings()
     settings.VISUAL = 0;
     settings.THRESHOLD = 0;
     settings.SUBSTEPS = 1;
+    settings.CLAMPING = 40;
 
     return settings;
 }
@@ -44,6 +46,7 @@ void setup(MTKView *view)
     view.colorPixelFormat = MTLPixelFormatBGRA8Unorm;
     view.depthStencilPixelFormat = MTLPixelFormatDepth32Float_Stencil8;
 
+
     NSError *error = nil;
     NSString *relativePath = [NSString stringWithFormat:@"./src/Shaders/build/%@.metallib", ShaderLib01];
     NSString *completePath = [NSURL fileURLWithPath:relativePath].path;
@@ -51,8 +54,10 @@ void setup(MTKView *view)
 
     engine.start = [NSDate date];
     engine.commandQueue = [engine.device newCommandQueue];
+    engine.commandQueue.label = @"Command Queue";
+
     MTLDepthStencilDescriptor *depthDesc = [MTLDepthStencilDescriptor new];
-    depthDesc.depthCompareFunction = MTLCompareFunctionLess;
+    depthDesc.depthCompareFunction = MTLCompareFunctionLessEqual;
     depthDesc.depthWriteEnabled = YES;
     engine.DepthSO = [engine.device newDepthStencilStateWithDescriptor:depthDesc];
 
@@ -97,7 +102,6 @@ void setup(MTKView *view)
     renderPipelineDescriptor.fragmentFunction = [engine.library newFunctionWithName:@"fragmentShader"];
     renderPipelineDescriptor.colorAttachments[0].pixelFormat = view.colorPixelFormat;
     renderPipelineDescriptor.depthAttachmentPixelFormat = view.depthStencilPixelFormat;
-    renderPipelineDescriptor.stencilAttachmentPixelFormat = view.depthStencilPixelFormat;
     renderPipelineDescriptor.vertexDescriptor = MTKMetalVertexDescriptorFromModelIO(engine.mesh.vertexDescriptor);
 
     engine.RPSO01 = [engine.device newRenderPipelineStateWithDescriptor:renderPipelineDescriptor error:&error];
@@ -106,6 +110,8 @@ void setup(MTKView *view)
     READJSONSETTINGS();
     initUniform();
     initParticles();
+    initCapture();
+    startCapture();
 }
 
 void initUniform()
@@ -128,19 +134,25 @@ void initUniform()
     uniform.THRESHOLD = SETTINGS.THRESHOLD;
     uniform.VISUAL = SETTINGS.VISUAL;
     uniform.TARGET_DENSITY = SETTINGS.TARGET_DENSITY;
+    uniform.CLAMPING = SETTINGS.CLAMPING;
+    uniform.frame = 0;
 }
 
 void initBuffers()
 {
     engine.TABLE_ARRAY = [engine.device newBufferWithLength:sizeof(uint) * SETTINGS.MAXPARTICLECOUNT + 1
                                                     options:MTLResourceStorageModeShared];
+    engine.TABLE_ARRAY.label = @"Table Array";
     engine.DENSE_TABLE = [engine.device newBufferWithLength:sizeof(uint) * SETTINGS.MAXPARTICLECOUNT
                                                     options:MTLResourceStorageModeShared];
+    engine.DENSE_TABLE.label = @"Dense Table";
     engine.START_INDICES =
         [engine.device newBufferWithLength:sizeof(struct START_INDICES_STRUCT) * SETTINGS.MAXPARTICLECOUNT
                                    options:MTLResourceStorageModeShared];
+    engine.START_INDICES.label = @"Start Indices";
     engine.particleBuffer = [engine.device newBufferWithLength:sizeof(struct Particle) * SETTINGS.MAXPARTICLECOUNT
                                                        options:MTLResourceStorageModeShared];
+    engine.particleBuffer.label = @"Particle Buffer";
 
     engine.bufferIndex = 0;
 }
@@ -178,6 +190,11 @@ void draw(MTKView *view)
     }
 
     RENDER(view);
+
+    uniform.frame++;
+    if (uniform.frame == 5) {
+        stopCapture();
+    }
 }
 
 void RENDER(MTKView *view)
@@ -497,4 +514,39 @@ void READJSONSETTINGS()
         }
         uniform.time += uniform.dt;
     }
+}
+
+void initCapture()
+{
+    MTLCaptureManager *captureManager = MTLCaptureManager.sharedCaptureManager;
+    engine.Scope = [captureManager newCaptureScopeWithDevice:engine.device];
+    [engine.Scope setLabel:@"Engine Scope"];
+
+    assert([captureManager supportsDestination:(MTLCaptureDestination)MTLCaptureDestinationGPUTraceDocument]);
+    NSError *error = nil;
+    NSDate *date = [NSDate date];
+
+    NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
+    formatter.dateFormat = @"hh:mm:ss";
+    NSString *dateString = [formatter stringFromDate:date];
+    NSString *relativePath = [NSString stringWithFormat:@"./analysis/%@.gputrace", dateString];
+    NSURL *TraceURL = [NSURL fileURLWithPath:relativePath];
+    MTLCaptureDescriptor *captureDescriptor = [MTLCaptureDescriptor new];
+    captureDescriptor.captureObject = engine.Scope;
+    captureDescriptor.outputURL = TraceURL;
+    captureDescriptor.destination = MTLCaptureDestinationGPUTraceDocument;
+
+    if (![captureManager startCaptureWithDescriptor:captureDescriptor error:&error]) {
+        NSLog(@"Failed to start capture: %@, %@", error, TraceURL);
+    }
+}
+void startCapture()
+{
+    [engine.Scope beginScope];
+    NSLog(@"Capture Started");
+}
+void stopCapture()
+{
+    [engine.Scope endScope];
+    NSLog(@"Capture stopped");
 }

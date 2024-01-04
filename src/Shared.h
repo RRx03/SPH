@@ -35,6 +35,8 @@ struct Uniform {
     float AMPLITUDE;
     int VISUAL;
     float THRESHOLD;
+    float CLAMPING;
+    unsigned int frame;
 };
 struct Stats {
     float MAX_GLOBAL_DENSITY;

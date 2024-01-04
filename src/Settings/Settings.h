@@ -22,6 +22,7 @@ struct SETTINGS {
     float RESET;
     int VISUAL;
     float THRESHOLD;
+    float CLAMPING;
 };
 
 
