@@ -47,7 +47,7 @@ clean:
 	rm -rf $(SHADER_BUILD_DIR)/*
 	rm -rf $(ANALYSE_DIR)/*
 
-git: add commit push
+git: clean add commit push
 
 add: 
 	git add .
