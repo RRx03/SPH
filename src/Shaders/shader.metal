@@ -16,7 +16,7 @@ kernel void initParticles(device Particle *particles [[buffer(1)]],
 {
     uint randomState = id;
     float3 position =
-        float3(uniform.BOUNDING_BOX.x * 2 * (random(&randomState) - 0.5), random(&randomState) * uniform.BOUNDING_BOX.y + 3,
+        float3(uniform.BOUNDING_BOX.x * 2 * (random(&randomState) - 0.5), uniform.BOUNDING_BOX.y/2 *(random(&randomState) +1),
                uniform.BOUNDING_BOX.z * 2 *(random(&randomState) - 0.5));
     particles[id].position = position;
     particles[id].nextPosition = position;
@@ -126,7 +126,6 @@ kernel void PREDICTION(device Particle *particles [[buffer(1)]],
     Particle particle = particles[id];
     float updateDeltaTime = uniform.dt / uniform.SUBSTEPS;
     particle.velocity += float3(0, -9.81, 0) * updateDeltaTime;
-    particle.velocity = clamp(particle.velocity, -uniform.CLAMPING, uniform.CLAMPING);
     particle.nextPosition = particle.position + particle.velocity * uniform.dt/2;
     particles[id] = particle;
 }
@@ -145,44 +144,41 @@ kernel void updateParticles(device Particle *particles [[buffer(1)]],
     int CELL_HASH = NEW_HASH_NORMALIZED(CELL_COORDINATES ,uniform.PARTICLECOUNT);
     uint RANDOM_STATE = CELL_HASH;
     particle.color = (uniform.VISUAL == 0) * uniform.COLOR;
-    // particle.color += (uniform.VISUAL == 1) * CalculateDensityVisualization(particle.density, uniform.TARGET_DENSITY, stats.MAX_GLOBAL_DENSITY, stats.MIN_GLOBAL_DENSITY, uniform.THRESHOLD);
-    // particle.color += (uniform.VISUAL == 2) * CalculatePressureVisualization(particle.pressure, stats.MAX_GLOBAL_PRESSURE, stats.MIN_GLOBAL_PRESSURE, uniform.THRESHOLD);
-    // particle.color += (uniform.VISUAL == 3) * CalculateSpeedVisualization(length(particle.velocity), stats.MAX_GLOBAL_SPEED, uniform.THRESHOLD);
+    particle.color += (uniform.VISUAL == 1) * CalculateDensityVisualization(particle.density, uniform.TARGET_DENSITY, stats.MAX_GLOBAL_DENSITY, stats.MIN_GLOBAL_DENSITY, uniform.THRESHOLD);
+    particle.color += (uniform.VISUAL == 2) * CalculatePressureVisualization(particle.pressure, stats.MAX_GLOBAL_PRESSURE, stats.MIN_GLOBAL_PRESSURE, uniform.THRESHOLD);
+    particle.color += (uniform.VISUAL == 3) * CalculateSpeedVisualization(length(particle.velocity), stats.MAX_GLOBAL_SPEED, uniform.THRESHOLD);
     particle.color += (uniform.VISUAL == 4) * float3(random(&RANDOM_STATE), random(&RANDOM_STATE), random(&RANDOM_STATE));
     particle.position += particle.velocity * updateDeltaTime;
 
 
     if (particle.position.y <= 0) {
         particle.position.y = 0;
-        particle.velocity.y *= -1 * uniform.DUMPING_FACTOR;
+        float difference = abs(particle.velocity.y - uniform.velBOUNDING_BOX.y);
+        particle.velocity.y = 1*difference * uniform.DUMPING_FACTOR;
     }
     else if (particle.position.y >= uniform.BOUNDING_BOX.y) {
         particle.position.y = uniform.BOUNDING_BOX.y;
-        particle.velocity.y *= -1 * uniform.DUMPING_FACTOR;
-
+        particle.velocity.y = 0;
     }
-    if (particle.position.x > uniform.BOUNDING_BOX.x + uniform.AMPLITUDE * abs(sin(uniform.time * PI * 2 * uniform.FREQUENCY))) {
-        float offset = (uniform.BOUNDING_BOX.x + uniform.AMPLITUDE * abs(sin(uniform.time * PI * 2 * uniform.FREQUENCY)) - particle.position.x);
-        particle.position.x = uniform.BOUNDING_BOX.x + uniform.AMPLITUDE * abs(sin(uniform.time * PI * 2 * uniform.FREQUENCY));
-        particle.velocity.x *= -1 * uniform.DUMPING_FACTOR;
-        particle.velocity.x += offset/updateDeltaTime;
-    } else if (particle.position.x <
-               -uniform.BOUNDING_BOX.x - uniform.AMPLITUDE * abs(sin(uniform.time * PI * 2 * uniform.FREQUENCY))) {
-        float offset = (-uniform.BOUNDING_BOX.x - uniform.AMPLITUDE * abs(sin(uniform.time * PI * 2 * uniform.FREQUENCY)) - particle.position.x);
-        particle.position.x = -uniform.BOUNDING_BOX.x - uniform.AMPLITUDE * abs(sin(uniform.time * PI * 2 * uniform.FREQUENCY));
-        particle.velocity.x *= -1 * uniform.DUMPING_FACTOR;
-        particle.velocity.x += offset/updateDeltaTime;
+
+    if (particle.position.x > uniform.BOUNDING_BOX.x) {
+        particle.position.x = uniform.BOUNDING_BOX.x;
+        float difference = abs(particle.velocity.x - uniform.velBOUNDING_BOX.x);
+        particle.velocity.x = -1 * difference * uniform.DUMPING_FACTOR;
+    } 
+    else if (particle.position.x < -uniform.BOUNDING_BOX.x) {
+        particle.position.x = -uniform.BOUNDING_BOX.x;
+        float difference = abs(particle.velocity.x - uniform.velBOUNDING_BOX.x);
+        particle.velocity.x = 1*difference * uniform.DUMPING_FACTOR;
     }
     if (particle.position.z > uniform.BOUNDING_BOX.z) {
-        float offset = (uniform.BOUNDING_BOX.z - particle.position.z);
         particle.position.z = uniform.BOUNDING_BOX.z;
-        particle.velocity.z *= -1 * uniform.DUMPING_FACTOR;
-        particle.velocity.z += offset/updateDeltaTime;
+        float difference = abs(particle.velocity.z - uniform.velBOUNDING_BOX.z);
+        particle.velocity.z = -1 * difference * uniform.DUMPING_FACTOR;
     } else if (particle.position.z < -uniform.BOUNDING_BOX.z) {
-        float offset = (-uniform.BOUNDING_BOX.z - particle.position.z);
         particle.position.z = -uniform.BOUNDING_BOX.z;
-        particle.velocity.z *= -1 * uniform.DUMPING_FACTOR;
-        particle.velocity.z += offset/updateDeltaTime;
+        float difference = abs(particle.velocity.z - uniform.velBOUNDING_BOX.z);
+        particle.velocity.z = 1 * difference * uniform.DUMPING_FACTOR;
     }
 
     particles[id] = particle;

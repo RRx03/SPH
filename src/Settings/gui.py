@@ -3,7 +3,7 @@ from tkinter import ttk
 from json import *
 from random import *
 
-jsonDICO = {
+PRESET1 = {
     "SECURITY": 1,
     "RESET": 0,
     "PARTICLECOUNT": 20000,
@@ -19,7 +19,48 @@ jsonDICO = {
     "PAUSE": 0,
     "VISUAL": 0,
     "THRESHOLD": 100,
+    "XOFFSET": 0,
 }
+PRESET2 = {
+    "SECURITY": 1,
+    "RESET": 0,
+    "PARTICLECOUNT": 20000,
+    "RADIUS": 0.07,
+    "H": 0.35,
+    "TARGET_DENSITY": 400.0,
+    "GAZ_CONSTANT": 60.0,
+    "NEAR_GAZ_CONSTANT": 60.0,
+    "VISCOSITY": 1.0,
+    "DUMPING_FACTOR": 0.8,
+    "FREQUENCY": 0.0,
+    "AMPLITUDE": 0.0,
+    "PAUSE": 0.0,
+    "VISUAL": 0,
+    "THRESHOLD": 100.0,
+    "XOFFSET": -2.0,
+}
+
+FUNNY = {
+    "SECURITY": 1,
+    "RESET": 0,
+    "PARTICLECOUNT": 20000,
+    "RADIUS": 0.07,
+    "H": 0.35,
+    "TARGET_DENSITY": 800.0,
+    "GAZ_CONSTANT": 40.0,
+    "NEAR_GAZ_CONSTANT": 40.0,
+    "VISCOSITY": 10.0,
+    "DUMPING_FACTOR": 0.8,
+    "FREQUENCY": 0.0,
+    "AMPLITUDE": 0.0,
+    "PAUSE": 0.0,
+    "VISUAL": 0,
+    "THRESHOLD": 100.0,
+    "XOFFSET": -3,
+}
+
+jsonDICO = PRESET2
+
 
 VISUALS = {"None": 0, "Density": 1, "Pressure": 2, "Velocity": 3, "CELLS": 4}
 
@@ -46,6 +87,7 @@ def setValues():
     PARTICLECOUNT.set(jsonDICO["PARTICLECOUNT"])
     THRESHOLD.set(jsonDICO["THRESHOLD"])
     PAUSE.set(jsonDICO["PAUSE"])
+    XOFFSET.set(jsonDICO["XOFFSET"])
 
 
 def updateSettings(event):
@@ -65,7 +107,9 @@ def sendUpdates():
     jsonDICO["PARTICLECOUNT"] = PARTICLECOUNT.get()
     jsonDICO["PAUSE"] = PAUSE.get()
     jsonDICO["THRESHOLD"] = THRESHOLD.get()
+    jsonDICO["XOFFSET"] = XOFFSET.get()
     jsonDICO["SECURITY"] = random()
+
     settings = open("./src/Settings/settings.json", "w")
     settings.write(dumps(jsonDICO))
     settings.close()
@@ -117,6 +161,7 @@ FREQUENCY = DoubleVar()
 AMPLITUDE = DoubleVar()
 PAUSE = DoubleVar()
 THRESHOLD = DoubleVar()
+XOFFSET = DoubleVar()
 
 
 currentRow = 0
@@ -295,6 +340,27 @@ C1.grid(row=packCount * currentRow, column=0)
 C1.bind("<<ComboboxSelected>>", visualAction)
 C1.current(0)
 
+
+currentRow += 1
+Label(master, text="XOFFSET").grid(row=packCount * currentRow, column=0)
+Scale(
+    master,
+    from_=-10,
+    to=10,
+    length=800,
+    orient=HORIZONTAL,
+    resolution=0.01,
+    command=updateSettings,
+    variable=XOFFSET,
+    bg="white",
+    bd=1,
+    showvalue=0,
+    troughcolor="lightgrey",
+).grid(row=packCount * currentRow + 1, column=0)
+E2 = Entry(master, textvariable=XOFFSET, bd=0, justify="center")
+E2.bind("<Return>", updateSettings)
+E2.grid(row=packCount * currentRow + 2, column=0)
+master.rowconfigure(currentRow * packCount + 3, minsize=spaceSizing)
 
 currentRow += 1
 Label(master, text="THRESHOLD").grid(row=packCount * currentRow, column=0)

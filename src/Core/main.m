@@ -111,7 +111,6 @@ void setup(MTKView *view)
     initUniform();
     initParticles();
     initCapture();
-    startCapture();
 }
 
 void initUniform()
@@ -125,7 +124,9 @@ void initUniform()
     uniform.COLOR = SETTINGS.COLOR;
     uniform.GAZ_CONSTANT = SETTINGS.GAZ_CONSTANT;
     uniform.NEAR_GAZ_CONSTANT = SETTINGS.NEAR_GAZ_CONSTANT;
-    uniform.BOUNDING_BOX = SETTINGS.BOUNDING_BOX;
+    uniform.BOUNDING_BOX = SETTINGS.BOUNDING_BOX + simd_make_float3(1, 0, 0) * uniform.XOFFSET;
+    uniform.oldBOUNDING_BOX = SETTINGS.BOUNDING_BOX + simd_make_float3(1, 0, 0) * uniform.XOFFSET;
+
     uniform.DUMPING_FACTOR = SETTINGS.DUMPING_FACTOR;
     uniform.VISCOSITY = SETTINGS.VISCOSITY;
     uniform.SUBSTEPS = SETTINGS.SUBSTEPS;
@@ -136,6 +137,7 @@ void initUniform()
     uniform.TARGET_DENSITY = SETTINGS.TARGET_DENSITY;
     uniform.CLAMPING = SETTINGS.CLAMPING;
     uniform.frame = 0;
+    uniform.velBOUNDING_BOX = simd_make_float3(0, 0, 0);
 }
 
 void initBuffers()
@@ -179,6 +181,10 @@ void draw(MTKView *view)
 {
     READJSONSETTINGS();
 
+    uniform.BOUNDING_BOX.x = SETTINGS.BOUNDING_BOX.x +
+                             uniform.AMPLITUDE * sin(uniform.FREQUENCY * 2 * 3.14 * uniform.time) + uniform.XOFFSET;
+    uniform.velBOUNDING_BOX = (uniform.BOUNDING_BOX - uniform.oldBOUNDING_BOX) * uniform.SUBSTEPS / uniform.dt;
+
     for (int subStep = 0; subStep < SETTINGS.SUBSTEPS; subStep++) {
         PREDICT();
 
@@ -187,14 +193,15 @@ void draw(MTKView *view)
         CALCULATE_DATA(); // A Optimiser
 
         UPDATE_PARTICLES();
+
+        uniform.time += uniform.dt / SETTINGS.SUBSTEPS;
     }
 
     RENDER(view);
 
     uniform.frame++;
-    if (uniform.frame == 5) {
-        stopCapture();
-    }
+
+    uniform.oldBOUNDING_BOX = uniform.BOUNDING_BOX;
 }
 
 void RENDER(MTKView *view)
@@ -489,6 +496,9 @@ void READJSONSETTINGS()
 
         uniform.THRESHOLD = [[dict objectForKey:@"THRESHOLD"] floatValue];
         SETTINGS.THRESHOLD = uniform.THRESHOLD;
+
+        uniform.XOFFSET = [[dict objectForKey:@"XOFFSET"] floatValue];
+
 
         SETTINGS.SECURITY = [[dict objectForKey:@"SECURITY"] integerValue];
 
