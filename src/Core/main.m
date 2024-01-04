@@ -168,7 +168,6 @@ void initParticles()
 
     [computeEncoder setComputePipelineState:engine.CPSOinitParticles];
     [computeEncoder setBuffer:engine.particleBuffer offset:0 atIndex:1];
-
     [computeEncoder setBytes:&uniform length:sizeof(struct Uniform) atIndex:10];
     [computeEncoder dispatchThreads:MTLSizeMake(SETTINGS.PARTICLECOUNT, 1, 1)
               threadsPerThreadgroup:MTLSizeMake(engine.CPSOinitParticles.maxTotalThreadsPerThreadgroup, 1, 1)];
@@ -200,6 +199,10 @@ void draw(MTKView *view)
     RENDER(view);
 
     uniform.frame++;
+
+    if (uniform.frame == 10) {
+        stopCapture();
+    }
 
     uniform.oldBOUNDING_BOX = uniform.BOUNDING_BOX;
 }
@@ -549,6 +552,7 @@ void initCapture()
     if (![captureManager startCaptureWithDescriptor:captureDescriptor error:&error]) {
         NSLog(@"Failed to start capture: %@, %@", error, TraceURL);
     }
+    startCapture();
 }
 void startCapture()
 {

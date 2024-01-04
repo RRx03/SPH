@@ -24,6 +24,18 @@ kernel void initParticles(device Particle *particles [[buffer(1)]],
     particles[id].color = uniform.COLOR;
 }
 
+
+kernel void PREDICTION(device Particle *particles [[buffer(1)]],
+                       constant Uniform &uniform [[buffer(10)]],
+                       uint id [[thread_position_in_grid]])
+{
+    Particle particle = particles[id];
+    float updateDeltaTime = uniform.dt / uniform.SUBSTEPS;
+    particle.velocity += float3(0, -9.81, 0) * updateDeltaTime;
+    particle.nextPosition = particle.position + particle.velocity * uniform.dt/2;
+    particles[id] = particle;
+}
+
 kernel void CALCULATE_DENSITIES(device Particle *particles [[buffer(1)]],
                                 constant uint *DENSE_TABLE [[buffer(3)]],
                                 constant START_INDICES_STRUCT *START_INDICES [[buffer(4)]],
@@ -119,16 +131,6 @@ kernel void CALCULATE_PRESSURE_VISCOSITY(device Particle *particles [[buffer(1)]
     particles[id] = particle;
 }
 
-kernel void PREDICTION(device Particle *particles [[buffer(1)]],
-                            constant Uniform &uniform [[buffer(10)]],
-                            uint id [[thread_position_in_grid]])
-{
-    Particle particle = particles[id];
-    float updateDeltaTime = uniform.dt / uniform.SUBSTEPS;
-    particle.velocity += float3(0, -9.81, 0) * updateDeltaTime;
-    particle.nextPosition = particle.position + particle.velocity * uniform.dt/2;
-    particles[id] = particle;
-}
 
 kernel void updateParticles(device Particle *particles [[buffer(1)]],
                             constant uint *DENSE_TABLE [[buffer(3)]],

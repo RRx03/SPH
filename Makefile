@@ -70,9 +70,9 @@ killPID :
 	kill $(shell ps aux | grep $(APP_NAME) -m 1 | awk '{print $$2}')
 
 
-analysis :
+analyses :
 	make buildAll
-	make cleanAnalyse
+	make cleanAnalyses
 	xctrace record --template "Game Performance" --instrument "Allocations" --launch $(BUILD_DIR)/$(APP_NAME) --output ./analysis/analysisPerf.trace --time-limit 5s
 	make open
 	make killPID
