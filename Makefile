@@ -46,10 +46,10 @@ clean:
 	rm -rf $(BUILD_DIR)/*
 	rm -rf $(SHADER_BUILD_DIR)/*
 
-cleanAnalyse:
+cleanAnalyses:
 	rm -rf $(ANALYSE_DIR)/*
 
-git: cleanAnalyse add commit push
+git: add commit push
 
 add: 
 	git add .
@@ -70,9 +70,9 @@ killPID :
 	kill $(shell ps aux | grep $(APP_NAME) -m 1 | awk '{print $$2}')
 
 
-analyse :
+analysis :
 	make buildAll
-	cleanAnalyse
+	make cleanAnalyse
 	xctrace record --template "Game Performance" --instrument "Allocations" --launch $(BUILD_DIR)/$(APP_NAME) --output ./analysis/analysisPerf.trace --time-limit 5s
 	make open
 	make killPID
@@ -80,6 +80,9 @@ analyse :
 open :
 	open ./analysis/*.trace
 
+openGPU :
+	open ./analysis/*.gputrace
+
 sign :
-	codesign -f -v --sign "Apple Development" --entitlements Certificates/debug.plist $(BUILD_DIR)/$(APP_NAME)
+	codesign -f -v --sign "Apple Development" --entitlements $(BUILD_DIR)/entitlements.plist $(BUILD_DIR)/$(APP_NAME)
 	

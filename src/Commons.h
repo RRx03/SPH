@@ -45,6 +45,9 @@ void READJSONSETTINGS();
 void initUniform();
 void initBuffers();
 void PREDICT();
+void initCapture();
+void startCapture();
+void stopCapture();
 
 @interface ComputePSO : NSObject
 @property (retain, readwrite, nonatomic) id<MTLComputePipelineState> computePSO;
@@ -69,6 +72,8 @@ struct Engine {
     id<MTLComputePipelineState> CPSOcalculateDensities;
     id<MTLComputePipelineState> CPSOcalculatePressureViscosity;
     id<MTLComputePipelineState> CPSOprediciton;
+
+    id<MTLCaptureScope> Scope;
 
 
     dispatch_semaphore_t Semaphore;

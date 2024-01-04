@@ -16,7 +16,7 @@ kernel void initParticles(device Particle *particles [[buffer(1)]],
 {
     uint randomState = id;
     float3 position =
-        float3(uniform.BOUNDING_BOX.x * 2 * (random(&randomState) - 0.5), random(&randomState) * uniform.BOUNDING_BOX.y + 3,
+        float3(uniform.BOUNDING_BOX.x * 2 * (random(&randomState) - 0.5), uniform.BOUNDING_BOX.y/2 *(random(&randomState) +1),
                uniform.BOUNDING_BOX.z * 2 *(random(&randomState) - 0.5));
     particles[id].position = position;
     particles[id].nextPosition = position;
@@ -103,11 +103,11 @@ kernel void CALCULATE_PRESSURE_VISCOSITY(device Particle *particles [[buffer(1)]
                 float dist = sqrt(sqrdDist);
                 float3 dir = dist == 0 ? float3(0, 1, 0) : offset/dist;
                 
-                float sharedPressure = (particle.pressure + particles[OPID].pressure) / 2;
-                float sharedNearPressure = (particle.nearPressure + particles[OPID].nearPressure) / 2;
-
-                pressureForce += dir * sharedPressure * DensityDerivative(dist, uniform.H) / particles[OPID].density;
-                pressureForce += dir * sharedNearPressure * NearDensityDerivative(dist, uniform.H) / particles[OPID].nearDensity;
+                float sharedPressure = (particle.pressure + particles[OPID].pressure) / (2*particles[OPID].density);
+                float sharedNearPressure = (particle.nearPressure + particles[OPID].nearPressure) / (2*particles[OPID].nearDensity);
+                
+                pressureForce += dir * sharedPressure * DensityDerivative(dist, uniform.H);
+                pressureForce += dir * sharedNearPressure * NearDensityDerivative(dist, uniform.H);
 
                 viscosityForce += (particles[OPID].velocity - particle.velocity) * uniform.VISCOSITY * SmoothingKernelPoly6(dist, uniform.H);
 
@@ -115,7 +115,7 @@ kernel void CALCULATE_PRESSURE_VISCOSITY(device Particle *particles [[buffer(1)]
             }
         }
     }
-    particle.velocity += (pressureForce / particle.density + viscosityForce) * updateDeltaTime;
+    particle.velocity += (pressureForce / particle.density + viscosityForce/particle.density) * updateDeltaTime;
     particles[id] = particle;
 }
 
@@ -125,8 +125,8 @@ kernel void PREDICTION(device Particle *particles [[buffer(1)]],
 {
     Particle particle = particles[id];
     float updateDeltaTime = uniform.dt / uniform.SUBSTEPS;
-    particle.velocity = particle.velocity + float3(0, -9.81, 0) * updateDeltaTime;
-    particle.nextPosition = particle.position + particle.velocity * 1/120;
+    particle.velocity += float3(0, -9.81, 0) * updateDeltaTime;
+    particle.nextPosition = particle.position + particle.velocity * uniform.dt/2;
     particles[id] = particle;
 }
 
@@ -153,26 +153,32 @@ kernel void updateParticles(device Particle *particles [[buffer(1)]],
 
     if (particle.position.y <= 0) {
         particle.position.y = 0;
-        particle.velocity.y *= -1 * uniform.DUMPING_FACTOR;
+        float difference = abs(particle.velocity.y - uniform.velBOUNDING_BOX.y);
+        particle.velocity.y = 1*difference * uniform.DUMPING_FACTOR;
     }
     else if (particle.position.y >= uniform.BOUNDING_BOX.y) {
         particle.position.y = uniform.BOUNDING_BOX.y;
-        particle.velocity.y *= -1 * uniform.DUMPING_FACTOR;
+        particle.velocity.y = 0;
     }
-    if (particle.position.x > uniform.BOUNDING_BOX.x + uniform.AMPLITUDE * abs(sin(uniform.time * PI * 2 * uniform.FREQUENCY))) {
-        particle.position.x = uniform.BOUNDING_BOX.x + uniform.AMPLITUDE * abs(sin(uniform.time * PI * 2 * uniform.FREQUENCY));
-        particle.velocity.x *= -1 * uniform.DUMPING_FACTOR;
-    } else if (particle.position.x <
-               -uniform.BOUNDING_BOX.x - uniform.AMPLITUDE * abs(sin(uniform.time * PI * 2 * uniform.FREQUENCY))) {
-        particle.position.x = -uniform.BOUNDING_BOX.x - uniform.AMPLITUDE * abs(sin(uniform.time * PI * 2 * uniform.FREQUENCY));
-        particle.velocity.x *= -1 * uniform.DUMPING_FACTOR;
+
+    if (particle.position.x > uniform.BOUNDING_BOX.x) {
+        particle.position.x = uniform.BOUNDING_BOX.x;
+        float difference = abs(particle.velocity.x - uniform.velBOUNDING_BOX.x);
+        particle.velocity.x = -1 * difference * uniform.DUMPING_FACTOR;
+    } 
+    else if (particle.position.x < -uniform.BOUNDING_BOX.x) {
+        particle.position.x = -uniform.BOUNDING_BOX.x;
+        float difference = abs(particle.velocity.x - uniform.velBOUNDING_BOX.x);
+        particle.velocity.x = 1*difference * uniform.DUMPING_FACTOR;
     }
     if (particle.position.z > uniform.BOUNDING_BOX.z) {
         particle.position.z = uniform.BOUNDING_BOX.z;
-        particle.velocity.z *= -1 * uniform.DUMPING_FACTOR;
+        float difference = abs(particle.velocity.z - uniform.velBOUNDING_BOX.z);
+        particle.velocity.z = -1 * difference * uniform.DUMPING_FACTOR;
     } else if (particle.position.z < -uniform.BOUNDING_BOX.z) {
         particle.position.z = -uniform.BOUNDING_BOX.z;
-        particle.velocity.z *= -1 * uniform.DUMPING_FACTOR;
+        float difference = abs(particle.velocity.z - uniform.velBOUNDING_BOX.z);
+        particle.velocity.z = 1 * difference * uniform.DUMPING_FACTOR;
     }
 
     particles[id] = particle;

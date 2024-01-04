@@ -31,10 +31,15 @@ struct Uniform {
     float VISCOSITY;
     float DUMPING_FACTOR;
     simd_float3 BOUNDING_BOX;
+    simd_float3 oldBOUNDING_BOX;
+    simd_float3 velBOUNDING_BOX;
     float FREQUENCY;
     float AMPLITUDE;
     int VISUAL;
     float THRESHOLD;
+    float CLAMPING;
+    float XOFFSET;
+    unsigned int frame;
 };
 struct Stats {
     float MAX_GLOBAL_DENSITY;

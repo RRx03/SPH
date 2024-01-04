@@ -44,7 +44,7 @@ int3 CELL_COORDS(float3 pos, float CELL_SIZE)
 
 uint NEW_HASH_NORMALIZED(int3 pos, uint m)
 {
-    uint c = ((pos.x*73856093)^(pos.y*19349663)^(pos.z*83492791))%m;
+    uint c = (((pos.x+10)*73856093)^((pos.y-10)*19349663)^((pos.z+9)*83492791))%m;
     return c;
 }
 
