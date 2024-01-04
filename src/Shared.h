@@ -8,7 +8,6 @@
 #define WIDTH 800
 #define HEIGHT 800
 #define BUFFER_COUNT 2
-#define SUBSTEPSCOUNT 1
 #define VERTEXDEFINITION 10
 #define CAMERAPOSITION 0, -5, -20
 
@@ -50,17 +49,12 @@ struct Stats {
 
 struct Particle {
     simd_float3 position;
-    simd_float3 oldPosition;
     simd_float3 nextPosition;
     simd_float3 velocity;
-    simd_float3 acceleration;
-    simd_float3 forces;
     float density;
     float nearDensity;
     float pressure;
     float nearPressure;
-    simd_float3 pressureForce;
-    simd_float3 viscosityForce;
     simd_float3 color;
 };
 

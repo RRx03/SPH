@@ -75,10 +75,9 @@ struct Engine {
     MTKMesh *mesh;
     uint bufferIndex;
     id<MTLBuffer> particleBuffer;
-    id<MTLBuffer> SECparticleBuffer;
 
-    id<MTLCommandBuffer> commandRenderBuffer[BUFFER_COUNT]; // They are both the same but one of them only for rendering
-    id<MTLCommandBuffer> commandComputeBuffer[BUFFER_COUNT]; // and the other only for computing.
+    id<MTLCommandBuffer> commandRenderBuffer[BUFFER_COUNT];
+    id<MTLCommandBuffer> commandComputeBuffer[BUFFER_COUNT];
     id<MTLBuffer> TABLE_ARRAY;
     id<MTLBuffer> DENSE_TABLE;
     id<MTLBuffer> START_INDICES;

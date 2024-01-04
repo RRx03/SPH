@@ -1,5 +1,6 @@
-APP_NAME = build
+APP_NAME = TIPE-exec
 BUILD_DIR = ./build
+ANALYSE_DIR = ./analysis
 
 
 APP_INCLUDES:=
@@ -18,9 +19,14 @@ Branch ?= $(shell bash -c 'read -p "Branch (main, 2D-Engine, 3D-Engine, 3D-Engin
 all:
 	make -j 2 gui project
 
-project: buildShader buildApp run
+project: 
+	make buildAll
+	make run
 
-build: buildShader buildApp
+buildAll: 
+	make buildShader
+	make buildApp
+	make sign
 
 buildShader:
 	xcrun -sdk macosx metal -o $(SHADER_BUILD_DIR)/shader.ir  -c $(SHADER_FILES)
@@ -31,12 +37,15 @@ buildApp:
 
 #-O0 means no optimization
 #-O2 means optimization
+
+
 run: 
 	$(BUILD_DIR)/$(APP_NAME)
 
 clean:
 	rm -rf $(BUILD_DIR)/*
 	rm -rf $(SHADER_BUILD_DIR)/*
+	rm -rf $(ANALYSE_DIR)/*
 
 git: add commit push
 
@@ -51,3 +60,24 @@ push :
 
 gui :
 	python3 ./src/Settings/*.py
+
+findPID :
+	ps aux | grep $(APP_NAME) -m 1 | awk '{print $$2}'
+
+killPID :
+	kill $(shell ps aux | grep $(APP_NAME) -m 1 | awk '{print $$2}')
+
+
+analyse :
+	make buildAll
+	rm -rf $(ANALYSE_DIR)/*
+	xctrace record --template "Game Performance" --instrument "Allocations" --launch $(BUILD_DIR)/$(APP_NAME) --output ./analysis/analysisPerf.trace --time-limit 5s
+	make open
+	make killPID
+
+open :
+	open ./analysis/*.trace
+
+sign :
+	codesign -f -v --sign "Apple Development" --entitlements Certificates/debug.plist $(BUILD_DIR)/$(APP_NAME)
+	

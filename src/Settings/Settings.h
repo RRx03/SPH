@@ -5,6 +5,7 @@ struct SETTINGS {
     unsigned int MAXPARTICLECOUNT;
     unsigned int PARTICLECOUNT;
     simd_float3 COLOR;
+    int SUBSTEPS;
     float RADIUS;
     float H;
     float MASS;

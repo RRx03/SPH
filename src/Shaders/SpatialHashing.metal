@@ -29,7 +29,7 @@ kernel void INIT_TABLES(constant Particle *PARTICLES [[buffer(1)]],
                         uint particleID [[thread_position_in_grid]])
 {
     int3 cellCoords = CELL_COORDS(PARTICLES[particleID].position, 2 * uniform.H);
-    uint hashValue = HASH(cellCoords, uniform.PARTICLECOUNT);
+    uint hashValue = NEW_HASH_NORMALIZED(cellCoords, uniform.PARTICLECOUNT);
     atomic_fetch_add_explicit(&TABLE_ARRAY + hashValue, 1, memory_order_relaxed);
 }
 
@@ -41,7 +41,7 @@ kernel void ASSIGN_DENSE_TABLE(constant Particle *PARTICLES [[buffer(1)]],
                                uint particleID [[thread_position_in_grid]])
 {
     int3 cellCoords = CELL_COORDS(PARTICLES[particleID].position, 2 * uniform.H);
-    uint hashValue = HASH(cellCoords, uniform.PARTICLECOUNT);
+    uint hashValue = NEW_HASH_NORMALIZED(cellCoords, uniform.PARTICLECOUNT);
 
     uint id = atomic_fetch_add_explicit(&TABLE_ARRAY + hashValue, -1, memory_order_relaxed);
     id -= 1;
