@@ -41,19 +41,11 @@ int3 CELL_COORDS(float3 pos, float CELL_SIZE)
 {
     return int3(pos / CELL_SIZE) - int3(pos.x < 0, pos.y < 0, pos.z < 0);
 }
-uint HASH(int3 CELL_COORDS, uint tableSize)
-{
-    int h = (CELL_COORDS.x * 92837111 + 653789820) ^ (CELL_COORDS.y * 689287499 + 653789820) ^
-            (CELL_COORDS.z * 283923481 + 653789820);
-    return uint(abs(h) % tableSize);
-}
-uint SECOND_HASH(int3 CELL_COORDS, uint tableSize)
-{
-    int h = (CELL_COORDS.x * 92837111 + 653789820) ^ (CELL_COORDS.y * 689287499 + 653789820) ^
-            (CELL_COORDS.z * 283923481 + 653789820);
-    uint randomState = abs(h);
 
-    return uint(randomState * tableSize);
+uint NEW_HASH_NORMALIZED(int3 pos, uint m)
+{
+    uint c = ((pos.x*73856093)^(pos.y*19349663)^(pos.z*83492791))%m;
+    return c;
 }
 
 

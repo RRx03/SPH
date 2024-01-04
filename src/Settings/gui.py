@@ -3,7 +3,7 @@ from tkinter import ttk
 from json import *
 from random import *
 
-# Ajouter fixed dt, et fixed fps, substepcount, boxsizing
+# Ajouter fixed dt, et fixed fps, substepcount, boxsizing, color
 
 jsonDICO = {
     "SECURITY": 1,
