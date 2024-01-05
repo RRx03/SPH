@@ -43,7 +43,7 @@ kernel void CALCULATE_DENSITIES(device Particle *particles [[buffer(1)]],
                                 uint id [[thread_position_in_grid]])
 {
     Particle particle = particles[id];
-    int3 CELL_COORDINATES = CELL_COORDS(particle.nextPosition, 2 * uniform.H);
+    int3 CELL_COORDINATES = CELL_COORDS(particle.nextPosition, uniform.H);
 
     particle.density = DensityKernel(0, uniform.H);
     particle.nearDensity = NearDensityKernel(0, uniform.H);
@@ -85,7 +85,7 @@ kernel void CALCULATE_PRESSURE_VISCOSITY(device Particle *particles [[buffer(1)]
     Particle particle = particles[id];
 
     float updateDeltaTime = uniform.dt / uniform.SUBSTEPS;
-    int3 CELL_COORDINATES = CELL_COORDS(particle.nextPosition, 2 * uniform.H);
+    int3 CELL_COORDINATES = CELL_COORDS(particle.nextPosition, uniform.H);
 
     float3 pressureForce = float3(0, 0, 0);
     float3 viscosityForce = float3(0, 0, 0);
@@ -142,7 +142,7 @@ kernel void updateParticles(device Particle *particles [[buffer(1)]],
     Particle particle = particles[id];
     float updateDeltaTime = uniform.dt / uniform.SUBSTEPS;
 
-    int3 CELL_COORDINATES = CELL_COORDS(particles[id].position, 2 * uniform.H);
+    int3 CELL_COORDINATES = CELL_COORDS(particles[id].position, uniform.H);
     int CELL_HASH = NEW_HASH_NORMALIZED(CELL_COORDINATES ,uniform.PARTICLECOUNT);
     uint RANDOM_STATE = CELL_HASH;
     particle.color = (uniform.VISUAL == 0) * uniform.COLOR;
