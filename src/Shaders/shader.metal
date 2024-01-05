@@ -24,18 +24,6 @@ kernel void initParticles(device Particle *particles [[buffer(1)]],
     particles[id].color = uniform.COLOR;
 }
 
-
-kernel void PREDICTION(device Particle *particles [[buffer(1)]],
-                       constant Uniform &uniform [[buffer(10)]],
-                       uint id [[thread_position_in_grid]])
-{
-    Particle particle = particles[id];
-    float updateDeltaTime = uniform.dt / uniform.SUBSTEPS;
-    particle.velocity += float3(0, -9.81, 0) * updateDeltaTime;
-    particle.nextPosition = particle.position + particle.velocity * uniform.dt/2;
-    particles[id] = particle;
-}
-
 kernel void CALCULATE_DENSITIES(device Particle *particles [[buffer(1)]],
                                 constant uint *DENSE_TABLE [[buffer(3)]],
                                 constant START_INDICES_STRUCT *START_INDICES [[buffer(4)]],
@@ -131,14 +119,26 @@ kernel void CALCULATE_PRESSURE_VISCOSITY(device Particle *particles [[buffer(1)]
     particles[id] = particle;
 }
 
+kernel void PREDICTION(device Particle *particles [[buffer(1)]],
+                            constant Uniform &uniform [[buffer(10)]],
+                            uint id [[thread_position_in_grid]])
+{
+    Particle particle = particles[id];
+    float updateDeltaTime = uniform.dt / uniform.SUBSTEPS;
+    particle.velocity += float3(0, -9.81, 0) * updateDeltaTime;
+    particle.nextPosition = particle.position + particle.velocity * uniform.dt/2;
+    particles[id] = particle;
+}
 
 kernel void updateParticles(device Particle *particles [[buffer(1)]],
                             constant uint *DENSE_TABLE [[buffer(3)]],
                             constant START_INDICES_STRUCT *START_INDICES [[buffer(4)]],
                             constant Uniform &uniform [[buffer(10)]],
                             constant Stats &stats [[buffer(11)]],
-                            uint id [[thread_position_in_grid]])
+                            uint SerializedID [[thread_position_in_grid]])
 {
+    uint id = SerializedID;
+    float memLayout = float(id)/float(uniform.PARTICLECOUNT);
     Particle particle = particles[id];
     float updateDeltaTime = uniform.dt / uniform.SUBSTEPS;
 
@@ -150,6 +150,7 @@ kernel void updateParticles(device Particle *particles [[buffer(1)]],
     particle.color += (uniform.VISUAL == 2) * CalculatePressureVisualization(particle.pressure, stats.MAX_GLOBAL_PRESSURE, stats.MIN_GLOBAL_PRESSURE, uniform.THRESHOLD);
     particle.color += (uniform.VISUAL == 3) * CalculateSpeedVisualization(length(particle.velocity), stats.MAX_GLOBAL_SPEED, uniform.THRESHOLD);
     particle.color += (uniform.VISUAL == 4) * float3(random(&RANDOM_STATE), random(&RANDOM_STATE), random(&RANDOM_STATE));
+    particle.color += (uniform.VISUAL == 5) * float3(1, 1-memLayout, 1-memLayout);
     particle.position += particle.velocity * updateDeltaTime;
 
 

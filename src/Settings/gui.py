@@ -18,7 +18,7 @@ PRESET1 = {
     "AMPLITUDE": 0.0,
     "PAUSE": 0,
     "VISUAL": 0,
-    "THRESHOLD": 100,
+    "THRESHOLD": 1,
     "XOFFSET": 0,
 }
 PRESET2 = {
@@ -36,7 +36,7 @@ PRESET2 = {
     "AMPLITUDE": 0.0,
     "PAUSE": 0.0,
     "VISUAL": 0,
-    "THRESHOLD": 100.0,
+    "THRESHOLD": 1.0,
     "XOFFSET": -2.0,
 }
 
@@ -55,14 +55,40 @@ FUNNY = {
     "AMPLITUDE": 0.0,
     "PAUSE": 0.0,
     "VISUAL": 0,
-    "THRESHOLD": 100.0,
+    "THRESHOLD": 1.0,
     "XOFFSET": -3,
+}
+
+DEBUG = {
+    "SECURITY": 1,
+    "RESET": 0,
+    "PARTICLECOUNT": 20000,
+    "RADIUS": 0.07,
+    "H": 0.35,
+    "TARGET_DENSITY": 0,
+    "GAZ_CONSTANT": 0.0,
+    "NEAR_GAZ_CONSTANT": 0.0,
+    "VISCOSITY": 0.0,
+    "DUMPING_FACTOR": 0,
+    "FREQUENCY": 0.0,
+    "AMPLITUDE": 0.0,
+    "PAUSE": 0.0,
+    "VISUAL": 0,
+    "THRESHOLD": 1.0,
+    "XOFFSET": 0,
 }
 
 jsonDICO = PRESET2
 
 
-VISUALS = {"None": 0, "Density": 1, "Pressure": 2, "Velocity": 3, "CELLS": 4}
+VISUALS = {
+    "None": 0,
+    "Density": 1,
+    "Pressure": 2,
+    "Velocity": 3,
+    "CELLS": 4,
+    "Memory": 5,
+}
 
 packCount = 4
 spaceSizing = 10
