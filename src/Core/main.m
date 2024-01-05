@@ -19,10 +19,10 @@ struct SETTINGS initSettings()
     settings.MAXPARTICLECOUNT = 40000;
     settings.MASS = 1;
 
-    settings.ZINDEXSORT = true;
+    settings.ZINDEXSORT = false;
 
-    settings.BOUNDING_BOX = simd_make_float3(12, 12.0, 6.0);
-    settings.originBOUNDING_BOX = simd_make_float3(-6, 0, -3);
+    settings.BOUNDING_BOX = simd_make_float3(8, 12.0, 6.0);
+    settings.originBOUNDING_BOX = simd_make_float3(-4, 0, -3);
 
     settings.COLOR = simd_make_float3(1.0, 1.0, 1.0);
 
