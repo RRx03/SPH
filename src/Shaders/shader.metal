@@ -24,14 +24,14 @@ kernel void initParticles(device Particle *particles [[buffer(1)]],
     particles[id].color = uniform.COLOR;
 }
 
-kernel void CALCULATE_DENSITIES(device Particle *particles [[buffer(1)]],
-                                constant uint *DENSE_TABLE [[buffer(3)]],
+kernel void CALCULATE_DENSITIES(constant uint *DENSE_TABLE [[buffer(3)]],
                                 constant START_INDICES_STRUCT *START_INDICES [[buffer(4)]],
+                                device Particle *SORTED_PARTICLES [[buffer(5)]],
                                 constant Uniform &uniform [[buffer(10)]],
                                 uint id [[thread_position_in_grid]])
 {
-    Particle particle = particles[id];
-    int3 CELL_COORDINATES = CELL_COORDS(particle.nextPosition, 2 * uniform.H);
+    Particle particle = SORTED_PARTICLES[id];
+    int3 CELL_COORDINATES = CELL_COORDS(particle.nextPosition, uniform.H);
 
     particle.density = DensityKernel(0, uniform.H);
     particle.nearDensity = NearDensityKernel(0, uniform.H);
@@ -48,9 +48,9 @@ kernel void CALCULATE_DENSITIES(device Particle *particles [[buffer(1)]],
 
         if (uint(START_INDEX) < uniform.PARTICLECOUNT) {
             for (int NEIGHBOUR_ID = 0; NEIGHBOUR_ID < NEIGHBOURS_COUNT; NEIGHBOUR_ID++) {
-                uint OPID = DENSE_TABLE[START_INDEX + NEIGHBOUR_ID];
-                if (OPID == id) continue;
-                float3 offset = particles[OPID].nextPosition - particle.nextPosition;
+                Particle otherParticle = SORTED_PARTICLES[START_INDEX + NEIGHBOUR_ID];
+                if (uint(START_INDEX + NEIGHBOUR_ID) == id) continue;
+                float3 offset = otherParticle.nextPosition - particle.nextPosition;
                 float sqrdDist = dot(offset, offset);
                 if (sqrdDist > sqrdH) continue;
                 float dist = sqrt(sqrdDist);
@@ -61,19 +61,19 @@ kernel void CALCULATE_DENSITIES(device Particle *particles [[buffer(1)]],
     }
     particle.pressure = (particle.density - uniform.TARGET_DENSITY) * uniform.GAZ_CONSTANT;
     particle.nearPressure = uniform.NEAR_GAZ_CONSTANT * particle.nearDensity;
-    particles[id] = particle;
+    SORTED_PARTICLES[id] = particle;
 }
 
-kernel void CALCULATE_PRESSURE_VISCOSITY(device Particle *particles [[buffer(1)]],
-                                         constant uint *DENSE_TABLE [[buffer(3)]],
+kernel void CALCULATE_PRESSURE_VISCOSITY(constant uint *DENSE_TABLE [[buffer(3)]],
                                          constant START_INDICES_STRUCT *START_INDICES [[buffer(4)]],
+                                         device Particle *SORTED_PARTICLES [[buffer(5)]],
                                          constant Uniform &uniform [[buffer(10)]],
                                          uint id [[thread_position_in_grid]])
 {
-    Particle particle = particles[id];
+    Particle particle = SORTED_PARTICLES[id];
 
     float updateDeltaTime = uniform.dt / uniform.SUBSTEPS;
-    int3 CELL_COORDINATES = CELL_COORDS(particle.nextPosition, 2 * uniform.H);
+    int3 CELL_COORDINATES = CELL_COORDS(particle.nextPosition, uniform.H);
 
     float3 pressureForce = float3(0, 0, 0);
     float3 viscosityForce = float3(0, 0, 0);
@@ -91,11 +91,12 @@ kernel void CALCULATE_PRESSURE_VISCOSITY(device Particle *particles [[buffer(1)]
 
         if (uint(START_INDEX) < uniform.PARTICLECOUNT) {
             for (int NEIGHBOUR_ID = 0; NEIGHBOUR_ID < NEIGHBOURS_COUNT; NEIGHBOUR_ID++) {
-                uint OPID = DENSE_TABLE[START_INDEX + NEIGHBOUR_ID];
-                if (OPID == id) continue;
+                Particle otherParticle = SORTED_PARTICLES[START_INDEX + NEIGHBOUR_ID];
+
+                if (uint(START_INDEX + NEIGHBOUR_ID) == id) continue;
 
 
-                float3 offset = particles[OPID].nextPosition - particle.nextPosition;
+                float3 offset = otherParticle.nextPosition - particle.nextPosition;
                 float sqrdDist = dot(offset, offset);
 
                 if (sqrdDist > sqrdH) continue;
@@ -103,20 +104,20 @@ kernel void CALCULATE_PRESSURE_VISCOSITY(device Particle *particles [[buffer(1)]
                 float dist = sqrt(sqrdDist);
                 float3 dir = dist == 0 ? float3(0, 1, 0) : offset/dist;
                 
-                float sharedPressure = (particle.pressure + particles[OPID].pressure) / (2*particles[OPID].density);
-                float sharedNearPressure = (particle.nearPressure + particles[OPID].nearPressure) / (2*particles[OPID].nearDensity);
+                float sharedPressure = (particle.pressure + otherParticle.pressure) / (2*otherParticle.density);
+                float sharedNearPressure = (particle.nearPressure + otherParticle.nearPressure) / (2*otherParticle.nearDensity);
                 
                 pressureForce += dir * sharedPressure * DensityDerivative(dist, uniform.H);
                 pressureForce += dir * sharedNearPressure * NearDensityDerivative(dist, uniform.H);
 
-                viscosityForce += (particles[OPID].velocity - particle.velocity) * uniform.VISCOSITY * SmoothingKernelPoly6(dist, uniform.H);
+                viscosityForce += (otherParticle.velocity - particle.velocity) * uniform.VISCOSITY * SmoothingKernelPoly6(dist, uniform.H);
 
                 
             }
         }
     }
     particle.velocity += (pressureForce / particle.density + viscosityForce/particle.density) * updateDeltaTime;
-    particles[id] = particle;
+    SORTED_PARTICLES[id] = particle;
 }
 
 kernel void PREDICTION(device Particle *particles [[buffer(1)]],
@@ -131,16 +132,18 @@ kernel void PREDICTION(device Particle *particles [[buffer(1)]],
 }
 
 kernel void updateParticles(device Particle *particles [[buffer(1)]],
-                            constant uint *DENSE_TABLE [[buffer(3)]],
                             constant START_INDICES_STRUCT *START_INDICES [[buffer(4)]],
+                            device Particle *SORTED_PARTICLES [[buffer(5)]],
                             constant Uniform &uniform [[buffer(10)]],
                             constant Stats &stats [[buffer(11)]],
-                            uint id [[thread_position_in_grid]])
+                            uint SerializedID [[thread_position_in_grid]])
 {
-    Particle particle = particles[id];
+    uint id = SerializedID;
+    float memLayout = float(id)/float(uniform.PARTICLECOUNT);
+    Particle particle = SORTED_PARTICLES[id];
     float updateDeltaTime = uniform.dt / uniform.SUBSTEPS;
 
-    int3 CELL_COORDINATES = CELL_COORDS(particles[id].position, 2 * uniform.H);
+    int3 CELL_COORDINATES = CELL_COORDS(particle.position, uniform.H);
     int CELL_HASH = NEW_HASH_NORMALIZED(CELL_COORDINATES ,uniform.PARTICLECOUNT);
     uint RANDOM_STATE = CELL_HASH;
     particle.color = (uniform.VISUAL == 0) * uniform.COLOR;
@@ -148,6 +151,7 @@ kernel void updateParticles(device Particle *particles [[buffer(1)]],
     particle.color += (uniform.VISUAL == 2) * CalculatePressureVisualization(particle.pressure, stats.MAX_GLOBAL_PRESSURE, stats.MIN_GLOBAL_PRESSURE, uniform.THRESHOLD);
     particle.color += (uniform.VISUAL == 3) * CalculateSpeedVisualization(length(particle.velocity), stats.MAX_GLOBAL_SPEED, uniform.THRESHOLD);
     particle.color += (uniform.VISUAL == 4) * float3(random(&RANDOM_STATE), random(&RANDOM_STATE), random(&RANDOM_STATE));
+    particle.color += (uniform.VISUAL == 5) * float3(1, 1-memLayout, 1-memLayout);
     particle.position += particle.velocity * updateDeltaTime;
 
 
@@ -181,5 +185,6 @@ kernel void updateParticles(device Particle *particles [[buffer(1)]],
         particle.velocity.z = 1 * difference * uniform.DUMPING_FACTOR;
     }
 
+    SORTED_PARTICLES[id] = particle;
     particles[id] = particle;
 }

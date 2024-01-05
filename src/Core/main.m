@@ -16,7 +16,7 @@ struct SETTINGS initSettings()
 {
     struct SETTINGS settings;
     settings.dt = 1 / 60.0;
-    settings.MAXPARTICLECOUNT = 20000;
+    settings.MAXPARTICLECOUNT = 40000;
     settings.MASS = 1;
 
     settings.BOUNDING_BOX = simd_make_float3(6, 12.0, 3.0);
@@ -27,7 +27,6 @@ struct SETTINGS initSettings()
     settings.VISUAL = 0;
     settings.THRESHOLD = 0;
     settings.SUBSTEPS = 1;
-    settings.CLAMPING = 40;
 
     return settings;
 }
@@ -135,7 +134,6 @@ void initUniform()
     uniform.THRESHOLD = SETTINGS.THRESHOLD;
     uniform.VISUAL = SETTINGS.VISUAL;
     uniform.TARGET_DENSITY = SETTINGS.TARGET_DENSITY;
-    uniform.CLAMPING = SETTINGS.CLAMPING;
     uniform.frame = 0;
     uniform.velBOUNDING_BOX = simd_make_float3(0, 0, 0);
 }
@@ -156,6 +154,10 @@ void initBuffers()
                                                        options:MTLResourceStorageModeShared];
     engine.particleBuffer.label = @"Particle Buffer";
 
+    engine.sortedParticleBuffer = [engine.device newBufferWithLength:sizeof(struct Particle) * SETTINGS.MAXPARTICLECOUNT
+                                                             options:MTLResourceStorageModeShared];
+    engine.sortedParticleBuffer.label = @"Sorted Particle Buffer";
+
     engine.bufferIndex = 0;
 }
 
@@ -168,7 +170,6 @@ void initParticles()
 
     [computeEncoder setComputePipelineState:engine.CPSOinitParticles];
     [computeEncoder setBuffer:engine.particleBuffer offset:0 atIndex:1];
-
     [computeEncoder setBytes:&uniform length:sizeof(struct Uniform) atIndex:10];
     [computeEncoder dispatchThreads:MTLSizeMake(SETTINGS.PARTICLECOUNT, 1, 1)
               threadsPerThreadgroup:MTLSizeMake(engine.CPSOinitParticles.maxTotalThreadsPerThreadgroup, 1, 1)];
@@ -200,6 +201,10 @@ void draw(MTKView *view)
     RENDER(view);
 
     uniform.frame++;
+
+    if (uniform.frame == 10) {
+        stopCapture();
+    }
 
     uniform.oldBOUNDING_BOX = uniform.BOUNDING_BOX;
 }
@@ -314,6 +319,8 @@ void UPDATE_PARTICLES()
 
     [computeEncoder setBuffer:engine.DENSE_TABLE offset:0 atIndex:3];
     [computeEncoder setBuffer:engine.START_INDICES offset:0 atIndex:4];
+    [computeEncoder setBuffer:engine.sortedParticleBuffer offset:0 atIndex:5];
+
     [computeEncoder setBytes:&uniform length:sizeof(struct Uniform) atIndex:10];
     [computeEncoder setBytes:&stats length:sizeof(struct Stats) atIndex:11];
 
@@ -348,9 +355,10 @@ void CALCULATE_DATA()
     id<MTLComputeCommandEncoder> computeEncoder = [engine.commandComputeBuffer[0] computeCommandEncoder];
 
     [computeEncoder setComputePipelineState:engine.CPSOcalculateDensities];
-    [computeEncoder setBuffer:engine.particleBuffer offset:0 atIndex:1];
     [computeEncoder setBuffer:engine.DENSE_TABLE offset:0 atIndex:3];
     [computeEncoder setBuffer:engine.START_INDICES offset:0 atIndex:4];
+    [computeEncoder setBuffer:engine.sortedParticleBuffer offset:0 atIndex:5];
+
     [computeEncoder setBytes:&uniform length:sizeof(struct Uniform) atIndex:10];
 
     [computeEncoder dispatchThreads:MTLSizeMake(SETTINGS.PARTICLECOUNT, 1, 1)
@@ -365,9 +373,10 @@ void CALCULATE_DATA()
     computeEncoder = [engine.commandComputeBuffer[0] computeCommandEncoder];
 
     [computeEncoder setComputePipelineState:engine.CPSOcalculatePressureViscosity];
-    [computeEncoder setBuffer:engine.particleBuffer offset:0 atIndex:1];
     [computeEncoder setBuffer:engine.DENSE_TABLE offset:0 atIndex:3];
     [computeEncoder setBuffer:engine.START_INDICES offset:0 atIndex:4];
+    [computeEncoder setBuffer:engine.sortedParticleBuffer offset:0 atIndex:5];
+
     [computeEncoder setBytes:&uniform length:sizeof(struct Uniform) atIndex:10];
 
     [computeEncoder dispatchThreads:MTLSizeMake(SETTINGS.PARTICLECOUNT, 1, 1)
@@ -426,6 +435,7 @@ void ASSIGN_DENSE_TABLE()
     [computeEncoder setBuffer:engine.particleBuffer offset:0 atIndex:1];
     [computeEncoder setBuffer:engine.TABLE_ARRAY offset:0 atIndex:2];
     [computeEncoder setBuffer:engine.DENSE_TABLE offset:0 atIndex:3];
+    [computeEncoder setBuffer:engine.sortedParticleBuffer offset:0 atIndex:5];
     [computeEncoder setBytes:&uniform length:sizeof(struct Uniform) atIndex:10];
     [computeEncoder setBytes:&stats length:sizeof(struct Stats) atIndex:11];
 
@@ -537,7 +547,7 @@ void initCapture()
     NSDate *date = [NSDate date];
 
     NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
-    formatter.dateFormat = @"hh:mm:ss";
+    formatter.dateFormat = @"hh-mm-ss";
     NSString *dateString = [formatter stringFromDate:date];
     NSString *relativePath = [NSString stringWithFormat:@"./analysis/%@.gputrace", dateString];
     NSURL *TraceURL = [NSURL fileURLWithPath:relativePath];
@@ -549,6 +559,7 @@ void initCapture()
     if (![captureManager startCaptureWithDescriptor:captureDescriptor error:&error]) {
         NSLog(@"Failed to start capture: %@, %@", error, TraceURL);
     }
+    startCapture();
 }
 void startCapture()
 {

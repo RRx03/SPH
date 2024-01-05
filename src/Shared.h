@@ -37,7 +37,6 @@ struct Uniform {
     float AMPLITUDE;
     int VISUAL;
     float THRESHOLD;
-    float CLAMPING;
     float XOFFSET;
     unsigned int frame;
 };
