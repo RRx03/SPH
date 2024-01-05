@@ -81,7 +81,7 @@ open :
 	open ./analysis/*.trace
 
 openGPU :
-	open ./analysis/*.gputrace
+	open ./analysis
 
 sign :
 	codesign -f -v --sign "Apple Development" --entitlements $(BUILD_DIR)/entitlements.plist $(BUILD_DIR)/$(APP_NAME)

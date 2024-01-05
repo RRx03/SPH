@@ -36,6 +36,7 @@ kernel void INIT_TABLES(constant Particle *PARTICLES [[buffer(1)]],
 kernel void ASSIGN_DENSE_TABLE(constant Particle *PARTICLES [[buffer(1)]],
                                device atomic_uint &TABLE_ARRAY [[buffer(2)]],
                                device atomic_uint &DENSE_TABLE [[buffer(3)]],
+                               device Particle *SORTED_PARTICLES [[buffer(5)]],
                                constant Uniform &uniform [[buffer(10)]],
                                constant Stats &stats [[buffer(11)]],
                                uint particleID [[thread_position_in_grid]])
@@ -47,4 +48,5 @@ kernel void ASSIGN_DENSE_TABLE(constant Particle *PARTICLES [[buffer(1)]],
     id -= 1;
 
     atomic_fetch_add_explicit(&DENSE_TABLE + id, particleID, memory_order_relaxed);
+    SORTED_PARTICLES[id] = PARTICLES[particleID];
 }

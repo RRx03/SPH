@@ -86,6 +86,7 @@ struct Engine {
     id<MTLBuffer> TABLE_ARRAY;
     id<MTLBuffer> DENSE_TABLE;
     id<MTLBuffer> START_INDICES;
+    id<MTLBuffer> sortedParticleBuffer;
 };
 
 void initEngine();
