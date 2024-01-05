@@ -19,7 +19,11 @@ struct SETTINGS initSettings()
     settings.MAXPARTICLECOUNT = 40000;
     settings.MASS = 1;
 
-    settings.BOUNDING_BOX = simd_make_float3(6, 12.0, 3.0);
+    settings.ZINDEXSORT = true;
+
+    settings.BOUNDING_BOX = simd_make_float3(12, 12.0, 6.0);
+    settings.originBOUNDING_BOX = simd_make_float3(-6, 0, -3);
+
     settings.COLOR = simd_make_float3(1.0, 1.0, 1.0);
 
     settings.SECURITY = 0;
@@ -125,7 +129,7 @@ void initUniform()
     uniform.NEAR_GAZ_CONSTANT = SETTINGS.NEAR_GAZ_CONSTANT;
     uniform.BOUNDING_BOX = SETTINGS.BOUNDING_BOX + simd_make_float3(1, 0, 0) * uniform.XOFFSET;
     uniform.oldBOUNDING_BOX = SETTINGS.BOUNDING_BOX + simd_make_float3(1, 0, 0) * uniform.XOFFSET;
-
+    uniform.originBOUNDING_BOX = SETTINGS.originBOUNDING_BOX;
     uniform.DUMPING_FACTOR = SETTINGS.DUMPING_FACTOR;
     uniform.VISCOSITY = SETTINGS.VISCOSITY;
     uniform.SUBSTEPS = SETTINGS.SUBSTEPS;
@@ -136,6 +140,7 @@ void initUniform()
     uniform.TARGET_DENSITY = SETTINGS.TARGET_DENSITY;
     uniform.frame = 0;
     uniform.velBOUNDING_BOX = simd_make_float3(0, 0, 0);
+    uniform.ZINDEXSORT = SETTINGS.ZINDEXSORT;
 }
 
 void initBuffers()
@@ -143,9 +148,7 @@ void initBuffers()
     engine.TABLE_ARRAY = [engine.device newBufferWithLength:sizeof(uint) * SETTINGS.MAXPARTICLECOUNT + 1
                                                     options:MTLResourceStorageModeShared];
     engine.TABLE_ARRAY.label = @"Table Array";
-    engine.DENSE_TABLE = [engine.device newBufferWithLength:sizeof(uint) * SETTINGS.MAXPARTICLECOUNT
-                                                    options:MTLResourceStorageModeShared];
-    engine.DENSE_TABLE.label = @"Dense Table";
+
     engine.START_INDICES =
         [engine.device newBufferWithLength:sizeof(struct START_INDICES_STRUCT) * SETTINGS.MAXPARTICLECOUNT
                                    options:MTLResourceStorageModeShared];
@@ -317,7 +320,6 @@ void UPDATE_PARTICLES()
     [computeEncoder setComputePipelineState:engine.CPSOupdateParticles];
     [computeEncoder setBuffer:engine.particleBuffer offset:0 atIndex:1];
 
-    [computeEncoder setBuffer:engine.DENSE_TABLE offset:0 atIndex:3];
     [computeEncoder setBuffer:engine.START_INDICES offset:0 atIndex:4];
     [computeEncoder setBuffer:engine.sortedParticleBuffer offset:0 atIndex:5];
 
@@ -355,7 +357,6 @@ void CALCULATE_DATA()
     id<MTLComputeCommandEncoder> computeEncoder = [engine.commandComputeBuffer[0] computeCommandEncoder];
 
     [computeEncoder setComputePipelineState:engine.CPSOcalculateDensities];
-    [computeEncoder setBuffer:engine.DENSE_TABLE offset:0 atIndex:3];
     [computeEncoder setBuffer:engine.START_INDICES offset:0 atIndex:4];
     [computeEncoder setBuffer:engine.sortedParticleBuffer offset:0 atIndex:5];
 
@@ -373,7 +374,6 @@ void CALCULATE_DATA()
     computeEncoder = [engine.commandComputeBuffer[0] computeCommandEncoder];
 
     [computeEncoder setComputePipelineState:engine.CPSOcalculatePressureViscosity];
-    [computeEncoder setBuffer:engine.DENSE_TABLE offset:0 atIndex:3];
     [computeEncoder setBuffer:engine.START_INDICES offset:0 atIndex:4];
     [computeEncoder setBuffer:engine.sortedParticleBuffer offset:0 atIndex:5];
 
@@ -394,7 +394,6 @@ void RESET_TABLES()
 
     [computeEncoder setComputePipelineState:engine.CPSOresetTables];
     [computeEncoder setBuffer:engine.TABLE_ARRAY offset:0 atIndex:2];
-    [computeEncoder setBuffer:engine.DENSE_TABLE offset:0 atIndex:3];
     [computeEncoder setBuffer:engine.START_INDICES offset:0 atIndex:4];
     [computeEncoder setBytes:&uniform length:sizeof(struct Uniform) atIndex:10];
     [computeEncoder setBytes:&stats length:sizeof(struct Stats) atIndex:11];
@@ -434,7 +433,6 @@ void ASSIGN_DENSE_TABLE()
     [computeEncoder setComputePipelineState:engine.CPSOassignDenseTables];
     [computeEncoder setBuffer:engine.particleBuffer offset:0 atIndex:1];
     [computeEncoder setBuffer:engine.TABLE_ARRAY offset:0 atIndex:2];
-    [computeEncoder setBuffer:engine.DENSE_TABLE offset:0 atIndex:3];
     [computeEncoder setBuffer:engine.sortedParticleBuffer offset:0 atIndex:5];
     [computeEncoder setBytes:&uniform length:sizeof(struct Uniform) atIndex:10];
     [computeEncoder setBytes:&stats length:sizeof(struct Stats) atIndex:11];

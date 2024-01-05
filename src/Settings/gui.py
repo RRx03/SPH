@@ -24,7 +24,7 @@ PRESET1 = {
 PRESET2 = {
     "SECURITY": 1,
     "RESET": 0,
-    "PARTICLECOUNT": 20000,
+    "PARTICLECOUNT": 40000,
     "RADIUS": 0.07,
     "H": 0.35,
     "TARGET_DENSITY": 400.0,
@@ -37,7 +37,7 @@ PRESET2 = {
     "PAUSE": 0.0,
     "VISUAL": 0,
     "THRESHOLD": 1.0,
-    "XOFFSET": -2.0,
+    "XOFFSET": 0.0,
 }
 
 FUNNY = {
@@ -56,7 +56,7 @@ FUNNY = {
     "PAUSE": 0.0,
     "VISUAL": 0,
     "THRESHOLD": 1.0,
-    "XOFFSET": -3,
+    "XOFFSET": 0,
 }
 
 DEBUG = {
@@ -97,7 +97,7 @@ JSON = {
     "XOFFSET": -2.0,
 }
 
-jsonDICO = JSON
+jsonDICO = PRESET2
 
 
 VISUALS = {

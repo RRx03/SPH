@@ -31,6 +31,7 @@ struct Uniform {
     float VISCOSITY;
     float DUMPING_FACTOR;
     simd_float3 BOUNDING_BOX;
+    simd_float3 originBOUNDING_BOX;
     simd_float3 oldBOUNDING_BOX;
     simd_float3 velBOUNDING_BOX;
     float FREQUENCY;
@@ -39,6 +40,7 @@ struct Uniform {
     float THRESHOLD;
     float XOFFSET;
     unsigned int frame;
+    bool ZINDEXSORT;
 };
 struct Stats {
     float MAX_GLOBAL_DENSITY;

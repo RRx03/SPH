@@ -16,22 +16,22 @@ kernel void initParticles(device Particle *particles [[buffer(1)]],
 {
     uint randomState = id;
     float3 position =
-        float3(uniform.BOUNDING_BOX.x * 2 * (random(&randomState) - 0.5), uniform.BOUNDING_BOX.y/2 *(random(&randomState) +1),
-               uniform.BOUNDING_BOX.z * 2 *(random(&randomState) - 0.5));
+        float3(uniform.originBOUNDING_BOX.x + uniform.BOUNDING_BOX.x * random(&randomState), uniform.originBOUNDING_BOX.y + uniform.BOUNDING_BOX.y * random(&randomState),
+               uniform.originBOUNDING_BOX.z + uniform.BOUNDING_BOX.z * random(&randomState));
     particles[id].position = position;
     particles[id].nextPosition = position;
     particles[id].velocity = float3(0, 0, 0);
     particles[id].color = uniform.COLOR;
 }
 
-kernel void CALCULATE_DENSITIES(constant uint *DENSE_TABLE [[buffer(3)]],
-                                constant START_INDICES_STRUCT *START_INDICES [[buffer(4)]],
+kernel void CALCULATE_DENSITIES(constant START_INDICES_STRUCT *START_INDICES [[buffer(4)]],
                                 device Particle *SORTED_PARTICLES [[buffer(5)]],
                                 constant Uniform &uniform [[buffer(10)]],
                                 uint id [[thread_position_in_grid]])
 {
     Particle particle = SORTED_PARTICLES[id];
     int3 CELL_COORDINATES = CELL_COORDS(particle.nextPosition, uniform.H);
+    int3 origin_CELL_COORDINATES = CELL_COORDS(uniform.originBOUNDING_BOX, uniform.H);
 
     particle.density = DensityKernel(0, uniform.H);
     particle.nearDensity = NearDensityKernel(0, uniform.H);
@@ -42,7 +42,13 @@ kernel void CALCULATE_DENSITIES(constant uint *DENSE_TABLE [[buffer(3)]],
 
     for (int CELLID = 0; CELLID < 27; CELLID++) {
         int3 NEIGHBOURING_CELLS_COORDS = CELL_COORDINATES + NEIGHBOURS[CELLID];
-        NEIGHBOURING_CELLS[CELLID] = NEW_HASH_NORMALIZED(NEIGHBOURING_CELLS_COORDS, uniform.PARTICLECOUNT);
+        if (uniform.ZINDEXSORT){
+            int3 true_NEIGHBOURING_CELLS_COORDS = true_CELL_COORDS(NEIGHBOURING_CELLS_COORDS, origin_CELL_COORDINATES, uniform.H);
+            NEIGHBOURING_CELLS[CELLID] = ZCURVE_key(true_NEIGHBOURING_CELLS_COORDS, uniform.PARTICLECOUNT);
+        }
+        else{
+            NEIGHBOURING_CELLS[CELLID] = NEW_HASH_NORMALIZED(NEIGHBOURING_CELLS_COORDS, uniform.PARTICLECOUNT);
+        }
         int START_INDEX = START_INDICES[NEIGHBOURING_CELLS[CELLID]].START_INDEX;
         int NEIGHBOURS_COUNT = START_INDICES[NEIGHBOURING_CELLS[CELLID]].COUNT;
 
@@ -64,8 +70,7 @@ kernel void CALCULATE_DENSITIES(constant uint *DENSE_TABLE [[buffer(3)]],
     SORTED_PARTICLES[id] = particle;
 }
 
-kernel void CALCULATE_PRESSURE_VISCOSITY(constant uint *DENSE_TABLE [[buffer(3)]],
-                                         constant START_INDICES_STRUCT *START_INDICES [[buffer(4)]],
+kernel void CALCULATE_PRESSURE_VISCOSITY(constant START_INDICES_STRUCT *START_INDICES [[buffer(4)]],
                                          device Particle *SORTED_PARTICLES [[buffer(5)]],
                                          constant Uniform &uniform [[buffer(10)]],
                                          uint id [[thread_position_in_grid]])
@@ -74,6 +79,8 @@ kernel void CALCULATE_PRESSURE_VISCOSITY(constant uint *DENSE_TABLE [[buffer(3)]
 
     float updateDeltaTime = uniform.dt / uniform.SUBSTEPS;
     int3 CELL_COORDINATES = CELL_COORDS(particle.nextPosition, uniform.H);
+    int3 origin_CELL_COORDINATES = CELL_COORDS(uniform.originBOUNDING_BOX, uniform.H);
+    
 
     float3 pressureForce = float3(0, 0, 0);
     float3 viscosityForce = float3(0, 0, 0);
@@ -85,7 +92,13 @@ kernel void CALCULATE_PRESSURE_VISCOSITY(constant uint *DENSE_TABLE [[buffer(3)]
 
     for (int CELLID = 0; CELLID < 27; CELLID++) {
         int3 NEIGHBOURING_CELLS_COORDS = CELL_COORDINATES + NEIGHBOURS[CELLID];
-        NEIGHBOURING_CELLS[CELLID] = NEW_HASH_NORMALIZED(NEIGHBOURING_CELLS_COORDS, uniform.PARTICLECOUNT);
+        if (uniform.ZINDEXSORT){
+            int3 true_NEIGHBOURING_CELLS_COORDS = true_CELL_COORDS(NEIGHBOURING_CELLS_COORDS, origin_CELL_COORDINATES, uniform.H);
+            NEIGHBOURING_CELLS[CELLID] = ZCURVE_key(true_NEIGHBOURING_CELLS_COORDS, uniform.PARTICLECOUNT);
+        }
+        else{
+            NEIGHBOURING_CELLS[CELLID] = NEW_HASH_NORMALIZED(NEIGHBOURING_CELLS_COORDS, uniform.PARTICLECOUNT);
+        }
         int START_INDEX = START_INDICES[NEIGHBOURING_CELLS[CELLID]].START_INDEX;
         int NEIGHBOURS_COUNT = START_INDICES[NEIGHBOURING_CELLS[CELLID]].COUNT;
 
@@ -144,8 +157,10 @@ kernel void updateParticles(device Particle *particles [[buffer(1)]],
     float updateDeltaTime = uniform.dt / uniform.SUBSTEPS;
 
     int3 CELL_COORDINATES = CELL_COORDS(particle.position, uniform.H);
-    int CELL_HASH = NEW_HASH_NORMALIZED(CELL_COORDINATES ,uniform.PARTICLECOUNT);
-    uint RANDOM_STATE = CELL_HASH;
+    int3 origin_CELL_COORDINATES = CELL_COORDS(uniform.originBOUNDING_BOX, uniform.H);
+    int3 true_CELL_COORDINATES = true_CELL_COORDS(CELL_COORDINATES, origin_CELL_COORDINATES, uniform.H);
+    uint ZCURVE_KEY = ZCURVE_key(true_CELL_COORDINATES, uniform.PARTICLECOUNT);
+    uint RANDOM_STATE = ZCURVE_KEY;
     particle.color = (uniform.VISUAL == 0) * uniform.COLOR;
     particle.color += (uniform.VISUAL == 1) * CalculateDensityVisualization(particle.density, uniform.TARGET_DENSITY, stats.MAX_GLOBAL_DENSITY, stats.MIN_GLOBAL_DENSITY, uniform.THRESHOLD);
     particle.color += (uniform.VISUAL == 2) * CalculatePressureVisualization(particle.pressure, stats.MAX_GLOBAL_PRESSURE, stats.MIN_GLOBAL_PRESSURE, uniform.THRESHOLD);
@@ -155,32 +170,32 @@ kernel void updateParticles(device Particle *particles [[buffer(1)]],
     particle.position += particle.velocity * updateDeltaTime;
 
 
-    if (particle.position.y <= 0) {
-        particle.position.y = 0;
+    if (particle.position.y <= uniform.originBOUNDING_BOX.y) {
+        particle.position.y = uniform.originBOUNDING_BOX.y;
         float difference = abs(particle.velocity.y - uniform.velBOUNDING_BOX.y);
         particle.velocity.y = 1*difference * uniform.DUMPING_FACTOR;
     }
-    else if (particle.position.y >= uniform.BOUNDING_BOX.y) {
+    else if (particle.position.y >= uniform.originBOUNDING_BOX.y + uniform.BOUNDING_BOX.y) {
         particle.position.y = uniform.BOUNDING_BOX.y;
         particle.velocity.y = 0;
     }
 
-    if (particle.position.x > uniform.BOUNDING_BOX.x) {
-        particle.position.x = uniform.BOUNDING_BOX.x;
+    if (particle.position.x > uniform.originBOUNDING_BOX.x + uniform.BOUNDING_BOX.x) {
+        particle.position.x = uniform.originBOUNDING_BOX.x + uniform.BOUNDING_BOX.x;
         float difference = abs(particle.velocity.x - uniform.velBOUNDING_BOX.x);
         particle.velocity.x = -1 * difference * uniform.DUMPING_FACTOR;
     } 
-    else if (particle.position.x < -uniform.BOUNDING_BOX.x) {
-        particle.position.x = -uniform.BOUNDING_BOX.x;
+    else if (particle.position.x < uniform.originBOUNDING_BOX.x) {
+        particle.position.x = uniform.originBOUNDING_BOX.x;
         float difference = abs(particle.velocity.x - uniform.velBOUNDING_BOX.x);
         particle.velocity.x = 1*difference * uniform.DUMPING_FACTOR;
     }
-    if (particle.position.z > uniform.BOUNDING_BOX.z) {
-        particle.position.z = uniform.BOUNDING_BOX.z;
+    if (particle.position.z > uniform.originBOUNDING_BOX.z + uniform.BOUNDING_BOX.z) {
+        particle.position.z = uniform.originBOUNDING_BOX.z + uniform.BOUNDING_BOX.z;
         float difference = abs(particle.velocity.z - uniform.velBOUNDING_BOX.z);
         particle.velocity.z = -1 * difference * uniform.DUMPING_FACTOR;
-    } else if (particle.position.z < -uniform.BOUNDING_BOX.z) {
-        particle.position.z = -uniform.BOUNDING_BOX.z;
+    } else if (particle.position.z < uniform.originBOUNDING_BOX.z) {
+        particle.position.z = uniform.originBOUNDING_BOX.z;
         float difference = abs(particle.velocity.z - uniform.velBOUNDING_BOX.z);
         particle.velocity.z = 1 * difference * uniform.DUMPING_FACTOR;
     }

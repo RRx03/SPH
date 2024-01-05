@@ -17,11 +17,14 @@ struct SETTINGS {
     float FREQUENCY;
     float AMPLITUDE;
     simd_float3 BOUNDING_BOX;
+    simd_float3 originBOUNDING_BOX;
+
 
     float SECURITY;
     float RESET;
     int VISUAL;
     float THRESHOLD;
+    bool ZINDEXSORT;
 };
 
 

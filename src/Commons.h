@@ -84,7 +84,6 @@ struct Engine {
     id<MTLCommandBuffer> commandRenderBuffer[BUFFER_COUNT];
     id<MTLCommandBuffer> commandComputeBuffer[BUFFER_COUNT];
     id<MTLBuffer> TABLE_ARRAY;
-    id<MTLBuffer> DENSE_TABLE;
     id<MTLBuffer> START_INDICES;
     id<MTLBuffer> sortedParticleBuffer;
 };
