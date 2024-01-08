@@ -73,7 +73,7 @@ killPID :
 analyses :
 	make buildAll
 	make cleanAnalyses
-	xctrace record --template "Game Performance" --instrument "Allocations" --launch $(BUILD_DIR)/$(APP_NAME) --output ./analysis/analysisPerf.trace --time-limit 10s
+	xctrace record --template "Game Performance" --instrument "Allocations" --launch $(BUILD_DIR)/$(APP_NAME) --output ./analysis/analysisPerf.trace --time-limit 5s
 	make open
 	make killPID
 

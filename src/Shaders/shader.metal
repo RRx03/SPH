@@ -44,10 +44,10 @@ kernel void CALCULATE_DENSITIES(constant START_INDICES_STRUCT *START_INDICES [[b
         int3 NEIGHBOURING_CELLS_COORDS = CELL_COORDINATES + NEIGHBOURS[CELLID];
         if (uniform.ZINDEXSORT){
             int3 true_NEIGHBOURING_CELLS_COORDS = true_CELL_COORDS(NEIGHBOURING_CELLS_COORDS, origin_CELL_COORDINATES, uniform.H);
-            NEIGHBOURING_CELLS[CELLID] = ZCURVE_key(true_NEIGHBOURING_CELLS_COORDS, uniform.PARTICLECOUNT);
+            NEIGHBOURING_CELLS[CELLID] = ZCURVE_key(true_NEIGHBOURING_CELLS_COORDS, uniform.TABLE_SIZE);
         }
         else{
-            NEIGHBOURING_CELLS[CELLID] = NEW_HASH_NORMALIZED(NEIGHBOURING_CELLS_COORDS, uniform.PARTICLECOUNT);
+            NEIGHBOURING_CELLS[CELLID] = NEW_HASH_NORMALIZED(NEIGHBOURING_CELLS_COORDS, uniform.TABLE_SIZE);
         }
         int START_INDEX = START_INDICES[NEIGHBOURING_CELLS[CELLID]].START_INDEX;
         int NEIGHBOURS_COUNT = START_INDICES[NEIGHBOURING_CELLS[CELLID]].COUNT;
@@ -94,10 +94,10 @@ kernel void CALCULATE_PRESSURE_VISCOSITY(constant START_INDICES_STRUCT *START_IN
         int3 NEIGHBOURING_CELLS_COORDS = CELL_COORDINATES + NEIGHBOURS[CELLID];
         if (uniform.ZINDEXSORT){
             int3 true_NEIGHBOURING_CELLS_COORDS = true_CELL_COORDS(NEIGHBOURING_CELLS_COORDS, origin_CELL_COORDINATES, uniform.H);
-            NEIGHBOURING_CELLS[CELLID] = ZCURVE_key(true_NEIGHBOURING_CELLS_COORDS, uniform.PARTICLECOUNT);
+            NEIGHBOURING_CELLS[CELLID] = ZCURVE_key(true_NEIGHBOURING_CELLS_COORDS, uniform.TABLE_SIZE);
         }
         else{
-            NEIGHBOURING_CELLS[CELLID] = NEW_HASH_NORMALIZED(NEIGHBOURING_CELLS_COORDS, uniform.PARTICLECOUNT);
+            NEIGHBOURING_CELLS[CELLID] = NEW_HASH_NORMALIZED(NEIGHBOURING_CELLS_COORDS, uniform.TABLE_SIZE);
         }
         int START_INDEX = START_INDICES[NEIGHBOURING_CELLS[CELLID]].START_INDEX;
         int NEIGHBOURS_COUNT = START_INDICES[NEIGHBOURING_CELLS[CELLID]].COUNT;
@@ -155,12 +155,8 @@ kernel void updateParticles(device Particle *particles [[buffer(1)]],
     float memLayout = float(id)/float(uniform.PARTICLECOUNT);
     Particle particle = SORTED_PARTICLES[id];
     float updateDeltaTime = uniform.dt / uniform.SUBSTEPS;
-
-    int3 CELL_COORDINATES = CELL_COORDS(particle.position, uniform.H);
-    int3 origin_CELL_COORDINATES = CELL_COORDS(uniform.originBOUNDING_BOX, uniform.H);
-    int3 true_CELL_COORDINATES = true_CELL_COORDS(CELL_COORDINATES, origin_CELL_COORDINATES, uniform.H);
-    uint ZCURVE_KEY = ZCURVE_key(true_CELL_COORDINATES, uniform.PARTICLECOUNT);
-    uint RANDOM_STATE = ZCURVE_KEY;
+    
+    uint RANDOM_STATE = id;
     particle.color = (uniform.VISUAL == 0) * uniform.COLOR;
     particle.color += (uniform.VISUAL == 1) * CalculateDensityVisualization(particle.density, uniform.TARGET_DENSITY, stats.MAX_GLOBAL_DENSITY, stats.MIN_GLOBAL_DENSITY, uniform.THRESHOLD);
     particle.color += (uniform.VISUAL == 2) * CalculatePressureVisualization(particle.pressure, stats.MAX_GLOBAL_PRESSURE, stats.MIN_GLOBAL_PRESSURE, uniform.THRESHOLD);
@@ -187,7 +183,7 @@ kernel void updateParticles(device Particle *particles [[buffer(1)]],
     } 
     else if (particle.position.x < uniform.originBOUNDING_BOX.x) {
         particle.position.x = uniform.originBOUNDING_BOX.x;
-        float difference = abs(particle.velocity.x - uniform.velBOUNDING_BOX.x);
+        float difference = abs(particle.velocity.x - uniform.velBOUNDING_BOX.x) *(dot(particle.velocity, particle.velocity) < 0);
         particle.velocity.x = 1*difference * uniform.DUMPING_FACTOR;
     }
     if (particle.position.z > uniform.originBOUNDING_BOX.z + uniform.BOUNDING_BOX.z) {

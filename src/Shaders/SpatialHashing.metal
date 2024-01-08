@@ -57,10 +57,10 @@ kernel void INIT_TABLES(constant Particle *PARTICLES [[buffer(1)]],
     if (uniform.ZINDEXSORT){            
         int3 origin_CELL_COORDINATES = CELL_COORDS(uniform.originBOUNDING_BOX, uniform.H);
         int3 true_CELL_COORDINATES = true_CELL_COORDS(CELL_COORDINATES, origin_CELL_COORDINATES, uniform.H);
-        KEY = ZCURVE_key(true_CELL_COORDINATES, uniform.PARTICLECOUNT);
+        KEY = ZCURVE_key(true_CELL_COORDINATES, uniform.TABLE_SIZE);
     }
     else{
-        KEY = NEW_HASH_NORMALIZED(CELL_COORDINATES, uniform.PARTICLECOUNT);
+        KEY = NEW_HASH_NORMALIZED(CELL_COORDINATES, uniform.TABLE_SIZE);
     }
     
     atomic_fetch_add_explicit(&TABLE_ARRAY + KEY, 1, memory_order_relaxed);
@@ -78,10 +78,10 @@ kernel void ASSIGN_DENSE_TABLE(constant Particle *PARTICLES [[buffer(1)]],
     if (uniform.ZINDEXSORT){            
         int3 origin_CELL_COORDINATES = CELL_COORDS(uniform.originBOUNDING_BOX, uniform.H);
         int3 true_CELL_COORDINATES = true_CELL_COORDS(CELL_COORDINATES, origin_CELL_COORDINATES, uniform.H);
-        KEY = ZCURVE_key(true_CELL_COORDINATES, uniform.PARTICLECOUNT);
+        KEY = ZCURVE_key(true_CELL_COORDINATES, uniform.TABLE_SIZE);
     }
     else{
-        KEY = NEW_HASH_NORMALIZED(CELL_COORDINATES, uniform.PARTICLECOUNT);
+        KEY = NEW_HASH_NORMALIZED(CELL_COORDINATES, uniform.TABLE_SIZE);
     }
 
 

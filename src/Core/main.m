@@ -17,12 +17,16 @@ struct SETTINGS initSettings()
     struct SETTINGS settings;
     settings.dt = 1 / 60.0;
     settings.MAXPARTICLECOUNT = 40000;
+    settings.TABLE_SIZE = 80000;
+
     settings.MASS = 1;
 
     settings.ZINDEXSORT = false;
 
     settings.BOUNDING_BOX = simd_make_float3(8, 12.0, 6.0);
     settings.originBOUNDING_BOX = simd_make_float3(-4, 0, -3);
+    settings.CAMERAPOSITION = simd_make_float3(0, 5, 20);
+
 
     settings.COLOR = simd_make_float3(1.0, 1.0, 1.0);
 
@@ -109,9 +113,10 @@ void setup(MTKView *view)
 
     engine.RPSO01 = [engine.device newRenderPipelineStateWithDescriptor:renderPipelineDescriptor error:&error];
 
-    initBuffers();
     READJSONSETTINGS();
     initUniform();
+
+    initBuffers();
     initParticles();
     // initCapture();
 }
@@ -119,7 +124,8 @@ void setup(MTKView *view)
 void initUniform()
 {
     uniform.projectionMatrix = projectionMatrix(70, (float)WIDTH / (float)HEIGHT, 0.1, 100);
-    uniform.viewMatrix = translation(simd_make_float3(CAMERAPOSITION));
+    uniform.viewMatrix = translation(-(SETTINGS.CAMERAPOSITION));
+    uniform.CAMERAPOSITION = SETTINGS.CAMERAPOSITION;
     uniform.PARTICLECOUNT = SETTINGS.PARTICLECOUNT;
     uniform.RADIUS = SETTINGS.RADIUS;
     uniform.H = SETTINGS.H;
@@ -141,17 +147,18 @@ void initUniform()
     uniform.frame = 0;
     uniform.velBOUNDING_BOX = simd_make_float3(0, 0, 0);
     uniform.ZINDEXSORT = SETTINGS.ZINDEXSORT;
+    uniform.TABLE_SIZE = fmax(SETTINGS.TABLE_SIZE, SETTINGS.PARTICLECOUNT);
+    SETTINGS.TABLE_SIZE = uniform.TABLE_SIZE;
 }
 
 void initBuffers()
 {
-    engine.TABLE_ARRAY = [engine.device newBufferWithLength:sizeof(uint) * SETTINGS.MAXPARTICLECOUNT + 1
+    engine.TABLE_ARRAY = [engine.device newBufferWithLength:sizeof(uint) * uniform.TABLE_SIZE + 1
                                                     options:MTLResourceStorageModeShared];
     engine.TABLE_ARRAY.label = @"Table Array";
 
-    engine.START_INDICES =
-        [engine.device newBufferWithLength:sizeof(struct START_INDICES_STRUCT) * SETTINGS.MAXPARTICLECOUNT
-                                   options:MTLResourceStorageModeShared];
+    engine.START_INDICES = [engine.device newBufferWithLength:sizeof(struct START_INDICES_STRUCT) * uniform.TABLE_SIZE
+                                                      options:MTLResourceStorageModeShared];
     engine.START_INDICES.label = @"Start Indices";
     engine.particleBuffer = [engine.device newBufferWithLength:sizeof(struct Particle) * SETTINGS.MAXPARTICLECOUNT
                                                        options:MTLResourceStorageModeShared];
@@ -263,10 +270,10 @@ void SPATIAL_HASH()
     stats.MAX_GLOBAL_SPEED = 0;
     stats.MIN_GLOBAL_SPEED = simd_length(particlePtr[0].velocity);
 
-    for (int tableID = 0; tableID < SETTINGS.PARTICLECOUNT; tableID++) {
+    for (int tableID = 0; tableID < SETTINGS.TABLE_SIZE; tableID++) {
         partialSum += tablePtr[tableID];
         tablePtr[tableID] = partialSum;
-        if (uniform.VISUAL != 0) {
+        if (uniform.VISUAL != 0 && tableID < SETTINGS.PARTICLECOUNT) {
             if (stats.MAX_GLOBAL_DENSITY < particlePtr[tableID].density) {
                 stats.MAX_GLOBAL_DENSITY = particlePtr[tableID].density;
             }
@@ -292,7 +299,7 @@ void SPATIAL_HASH()
     }
 
 
-    tablePtr[SETTINGS.PARTICLECOUNT] = partialSum;
+    tablePtr[SETTINGS.TABLE_SIZE] = partialSum;
 
 
     ASSIGN_DENSE_TABLE();
@@ -300,29 +307,45 @@ void SPATIAL_HASH()
 
     struct START_INDICES_STRUCT *startIndices = (struct START_INDICES_STRUCT *)engine.START_INDICES.contents;
     tablePtr = (int *)engine.TABLE_ARRAY.contents;
-    int previousValue = tablePtr[SETTINGS.PARTICLECOUNT];
-    for (int reverseID = SETTINGS.PARTICLECOUNT - 1; reverseID >= 0; reverseID--) {
+    int previousValue = tablePtr[SETTINGS.TABLE_SIZE];
+    for (int reverseID = SETTINGS.TABLE_SIZE - 1; reverseID >= 0; reverseID--) {
         if (tablePtr[reverseID] != previousValue) {
             startIndices[reverseID].START_INDEX = tablePtr[reverseID];
             startIndices[reverseID].COUNT = previousValue - tablePtr[reverseID];
         }
         previousValue = tablePtr[reverseID];
     }
-    tablePtr[SETTINGS.PARTICLECOUNT] = partialSum;
+    tablePtr[SETTINGS.TABLE_SIZE] = partialSum;
 }
 
-void UPDATE_PARTICLES()
+void RESET_TABLES()
 {
     engine.commandComputeBuffer[0] = [engine.commandQueue commandBuffer];
-    engine.commandComputeBuffer[0].label = @"Update Particles";
+    engine.commandComputeBuffer[0].label = @"Reset Tables";
     id<MTLComputeCommandEncoder> computeEncoder = [engine.commandComputeBuffer[0] computeCommandEncoder];
 
-    [computeEncoder setComputePipelineState:engine.CPSOupdateParticles];
-    [computeEncoder setBuffer:engine.particleBuffer offset:0 atIndex:1];
-
+    [computeEncoder setComputePipelineState:engine.CPSOresetTables];
+    [computeEncoder setBuffer:engine.TABLE_ARRAY offset:0 atIndex:2];
     [computeEncoder setBuffer:engine.START_INDICES offset:0 atIndex:4];
-    [computeEncoder setBuffer:engine.sortedParticleBuffer offset:0 atIndex:5];
+    [computeEncoder setBytes:&uniform length:sizeof(struct Uniform) atIndex:10];
+    [computeEncoder setBytes:&stats length:sizeof(struct Stats) atIndex:11];
 
+    [computeEncoder dispatchThreads:MTLSizeMake(uniform.TABLE_SIZE, 1, 1)
+              threadsPerThreadgroup:MTLSizeMake(engine.CPSOinitParticles.maxTotalThreadsPerThreadgroup, 1, 1)];
+    [computeEncoder endEncoding];
+    [engine.commandComputeBuffer[0] commit];
+    [engine.commandComputeBuffer[0] waitUntilCompleted];
+}
+
+void INIT_TABLES()
+{
+    engine.commandComputeBuffer[0] = [engine.commandQueue commandBuffer];
+    engine.commandComputeBuffer[0].label = @"Init Tables";
+    id<MTLComputeCommandEncoder> computeEncoder = [engine.commandComputeBuffer[0] computeCommandEncoder];
+
+    [computeEncoder setComputePipelineState:engine.CPSOinitTables];
+    [computeEncoder setBuffer:engine.particleBuffer offset:0 atIndex:1];
+    [computeEncoder setBuffer:engine.TABLE_ARRAY offset:0 atIndex:2];
     [computeEncoder setBytes:&uniform length:sizeof(struct Uniform) atIndex:10];
     [computeEncoder setBytes:&stats length:sizeof(struct Stats) atIndex:11];
 
@@ -332,6 +355,27 @@ void UPDATE_PARTICLES()
     [engine.commandComputeBuffer[0] commit];
     [engine.commandComputeBuffer[0] waitUntilCompleted];
 }
+
+void ASSIGN_DENSE_TABLE()
+{
+    engine.commandComputeBuffer[0] = [engine.commandQueue commandBuffer];
+    engine.commandComputeBuffer[0].label = @"Assign Dense Table";
+    id<MTLComputeCommandEncoder> computeEncoder = [engine.commandComputeBuffer[0] computeCommandEncoder];
+
+    [computeEncoder setComputePipelineState:engine.CPSOassignDenseTables];
+    [computeEncoder setBuffer:engine.particleBuffer offset:0 atIndex:1];
+    [computeEncoder setBuffer:engine.TABLE_ARRAY offset:0 atIndex:2];
+    [computeEncoder setBuffer:engine.sortedParticleBuffer offset:0 atIndex:5];
+    [computeEncoder setBytes:&uniform length:sizeof(struct Uniform) atIndex:10];
+    [computeEncoder setBytes:&stats length:sizeof(struct Stats) atIndex:11];
+
+    [computeEncoder dispatchThreads:MTLSizeMake(SETTINGS.PARTICLECOUNT, 1, 1)
+              threadsPerThreadgroup:MTLSizeMake(engine.CPSOinitParticles.maxTotalThreadsPerThreadgroup, 1, 1)];
+    [computeEncoder endEncoding];
+    [engine.commandComputeBuffer[0] commit];
+    [engine.commandComputeBuffer[0] waitUntilCompleted];
+}
+
 
 void PREDICT()
 {
@@ -386,54 +430,19 @@ void CALCULATE_DATA()
     [engine.commandComputeBuffer[0] waitUntilCompleted];
 }
 
-void RESET_TABLES()
+
+void UPDATE_PARTICLES()
 {
     engine.commandComputeBuffer[0] = [engine.commandQueue commandBuffer];
-    engine.commandComputeBuffer[0].label = @"Reset Tables";
+    engine.commandComputeBuffer[0].label = @"Update Particles";
     id<MTLComputeCommandEncoder> computeEncoder = [engine.commandComputeBuffer[0] computeCommandEncoder];
 
-    [computeEncoder setComputePipelineState:engine.CPSOresetTables];
-    [computeEncoder setBuffer:engine.TABLE_ARRAY offset:0 atIndex:2];
+    [computeEncoder setComputePipelineState:engine.CPSOupdateParticles];
+    [computeEncoder setBuffer:engine.particleBuffer offset:0 atIndex:1];
+
     [computeEncoder setBuffer:engine.START_INDICES offset:0 atIndex:4];
-    [computeEncoder setBytes:&uniform length:sizeof(struct Uniform) atIndex:10];
-    [computeEncoder setBytes:&stats length:sizeof(struct Stats) atIndex:11];
-
-    [computeEncoder dispatchThreads:MTLSizeMake(SETTINGS.MAXPARTICLECOUNT, 1, 1)
-              threadsPerThreadgroup:MTLSizeMake(engine.CPSOinitParticles.maxTotalThreadsPerThreadgroup, 1, 1)];
-    [computeEncoder endEncoding];
-    [engine.commandComputeBuffer[0] commit];
-    [engine.commandComputeBuffer[0] waitUntilCompleted];
-}
-
-void INIT_TABLES()
-{
-    engine.commandComputeBuffer[0] = [engine.commandQueue commandBuffer];
-    engine.commandComputeBuffer[0].label = @"Init Tables";
-    id<MTLComputeCommandEncoder> computeEncoder = [engine.commandComputeBuffer[0] computeCommandEncoder];
-
-    [computeEncoder setComputePipelineState:engine.CPSOinitTables];
-    [computeEncoder setBuffer:engine.particleBuffer offset:0 atIndex:1];
-    [computeEncoder setBuffer:engine.TABLE_ARRAY offset:0 atIndex:2];
-    [computeEncoder setBytes:&uniform length:sizeof(struct Uniform) atIndex:10];
-    [computeEncoder setBytes:&stats length:sizeof(struct Stats) atIndex:11];
-
-    [computeEncoder dispatchThreads:MTLSizeMake(SETTINGS.PARTICLECOUNT, 1, 1)
-              threadsPerThreadgroup:MTLSizeMake(engine.CPSOinitParticles.maxTotalThreadsPerThreadgroup, 1, 1)];
-    [computeEncoder endEncoding];
-    [engine.commandComputeBuffer[0] commit];
-    [engine.commandComputeBuffer[0] waitUntilCompleted];
-}
-
-void ASSIGN_DENSE_TABLE()
-{
-    engine.commandComputeBuffer[0] = [engine.commandQueue commandBuffer];
-    engine.commandComputeBuffer[0].label = @"Assign Dense Table";
-    id<MTLComputeCommandEncoder> computeEncoder = [engine.commandComputeBuffer[0] computeCommandEncoder];
-
-    [computeEncoder setComputePipelineState:engine.CPSOassignDenseTables];
-    [computeEncoder setBuffer:engine.particleBuffer offset:0 atIndex:1];
-    [computeEncoder setBuffer:engine.TABLE_ARRAY offset:0 atIndex:2];
     [computeEncoder setBuffer:engine.sortedParticleBuffer offset:0 atIndex:5];
+
     [computeEncoder setBytes:&uniform length:sizeof(struct Uniform) atIndex:10];
     [computeEncoder setBytes:&stats length:sizeof(struct Stats) atIndex:11];
 
@@ -506,6 +515,25 @@ void READJSONSETTINGS()
         SETTINGS.THRESHOLD = uniform.THRESHOLD;
 
         uniform.XOFFSET = [[dict objectForKey:@"XOFFSET"] floatValue];
+
+        // uniform.SUBSTEPS = [[dict objectForKey:@"SUBSTEPS"] integerValue];
+
+        // uniform.ZINDEXSORT = [[dict objectForKey:@"ZINDEXSORT"] integerValue];
+
+        uniform.CAMERAPOSITION = simd_make_float3([[dict objectForKey:@"CAMERAPOSITION"][0] floatValue],
+                                                  [[dict objectForKey:@"CAMERAPOSITION"][1] floatValue],
+                                                  [[dict objectForKey:@"CAMERAPOSITION"][2] floatValue]);
+        SETTINGS.CAMERAPOSITION = uniform.CAMERAPOSITION;
+        uniform.viewMatrix = translation(-(SETTINGS.CAMERAPOSITION));
+
+
+        // uniform.BOUNDING_BOX = simd_make_float3([[dict objectForKey:@"BOUNDING_BOX"][0] floatValue],
+        //                                         [[dict objectForKey:@"BOUNDING_BOX"][1] floatValue],
+        //                                         [[dict objectForKey:@"BOUNDING_BOX"][2] floatValue]);
+
+        // uniform.originBOUNDING_BOX = simd_make_float3([[dict objectForKey:@"originBOUNDING_BOX"][0] floatValue],
+        //                                               [[dict objectForKey:@"originBOUNDING_BOX"][1] floatValue],
+        //                                               [[dict objectForKey:@"originBOUNDING_BOX"][2] floatValue]);
 
 
         SETTINGS.SECURITY = [[dict objectForKey:@"SECURITY"] integerValue];

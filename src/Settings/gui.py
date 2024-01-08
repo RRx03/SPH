@@ -95,9 +95,12 @@ JSON = {
     "VISUAL": 0,
     "THRESHOLD": 1.0,
     "XOFFSET": -2.0,
+    "BOUNDING_BOX": [0, 0, 0],
+    "originBOUNDING_BOX": [0, 0, 0],
+    "CAMERAPOSITION": [0, 5, 20],
 }
 
-jsonDICO = PRESET2
+jsonDICO = JSON
 
 
 VISUALS = {
@@ -117,6 +120,7 @@ settings = open("./src/Settings/settings.json", "w")
 settings.write(dumps(jsonDICO))
 settings.close()
 master = Tk()
+step = 1
 
 
 def setValues():
@@ -133,6 +137,9 @@ def setValues():
     THRESHOLD.set(jsonDICO["THRESHOLD"])
     PAUSE.set(jsonDICO["PAUSE"])
     XOFFSET.set(jsonDICO["XOFFSET"])
+    CAMERAPOSITION[0] = jsonDICO["CAMERAPOSITION"][0]
+    CAMERAPOSITION[1] = jsonDICO["CAMERAPOSITION"][1]
+    CAMERAPOSITION[2] = jsonDICO["CAMERAPOSITION"][2]
 
 
 def updateSettings(event):
@@ -153,6 +160,9 @@ def sendUpdates():
     jsonDICO["PAUSE"] = PAUSE.get()
     jsonDICO["THRESHOLD"] = THRESHOLD.get()
     jsonDICO["XOFFSET"] = XOFFSET.get()
+    jsonDICO["CAMERAPOSITION"][0] = CAMERAPOSITION[0]
+    jsonDICO["CAMERAPOSITION"][1] = CAMERAPOSITION[1]
+    jsonDICO["CAMERAPOSITION"][2] = CAMERAPOSITION[2]
     jsonDICO["SECURITY"] = random()
 
     settings = open("./src/Settings/settings.json", "w")
@@ -175,8 +185,23 @@ def KEYPRESSED(event):
     t = event.keysym
     if t == "Return":
         sendUpdates()
-    elif t == "space":
-        PAUSE.set(1 - PAUSE.get())
+    if t == "space":
+        CAMERAPOSITION[1] += step
+        sendUpdates()
+    if t == "Shift_L":
+        CAMERAPOSITION[1] -= step
+        sendUpdates()
+    if t == "z":
+        CAMERAPOSITION[2] -= step
+        sendUpdates()
+    if t == "q":
+        CAMERAPOSITION[0] -= step
+        sendUpdates()
+    if t == "s":
+        CAMERAPOSITION[2] += step
+        sendUpdates()
+    if t == "d":
+        CAMERAPOSITION[0] += step
         sendUpdates()
 
 
@@ -207,6 +232,7 @@ AMPLITUDE = DoubleVar()
 PAUSE = DoubleVar()
 THRESHOLD = DoubleVar()
 XOFFSET = DoubleVar()
+CAMERAPOSITION = [0, 0, 0]
 
 
 currentRow = 0
@@ -438,6 +464,7 @@ reset = Button(master, text="RESET", command=resetButton).grid(
 )
 
 setValues()
+sendUpdates()
 
 
 master.mainloop()

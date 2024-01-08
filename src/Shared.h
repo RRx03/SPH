@@ -9,7 +9,6 @@
 #define HEIGHT 800
 #define BUFFER_COUNT 2
 #define VERTEXDEFINITION 10
-#define CAMERAPOSITION 0, -5, -20
 
 
 #define ShaderLib01 @"shader"
@@ -34,6 +33,7 @@ struct Uniform {
     simd_float3 originBOUNDING_BOX;
     simd_float3 oldBOUNDING_BOX;
     simd_float3 velBOUNDING_BOX;
+    simd_float3 CAMERAPOSITION;
     float FREQUENCY;
     float AMPLITUDE;
     int VISUAL;
@@ -41,6 +41,7 @@ struct Uniform {
     float XOFFSET;
     unsigned int frame;
     bool ZINDEXSORT;
+    unsigned int TABLE_SIZE;
 };
 struct Stats {
     float MAX_GLOBAL_DENSITY;
