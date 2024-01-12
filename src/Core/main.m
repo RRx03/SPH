@@ -16,15 +16,15 @@ struct SETTINGS initSettings()
 {
     struct SETTINGS settings;
     settings.dt = 1 / 60.0;
-    settings.MAXPARTICLECOUNT = 40000;
-    settings.TABLE_SIZE = 80000;
+    settings.MAXPARTICLECOUNT = 60000;
+    settings.TABLE_SIZE = 120000;
 
     settings.MASS = 1;
 
-    settings.ZINDEXSORT = false;
+    settings.ZINDEXSORT = true;
 
-    settings.BOUNDING_BOX = simd_make_float3(8, 12.0, 6.0);
-    settings.originBOUNDING_BOX = simd_make_float3(-4, 0, -3);
+    settings.BOUNDING_BOX = simd_make_float3(10, 12.0, 5.0);
+    settings.originBOUNDING_BOX = simd_make_float3(-5, 0, -2.5);
     settings.CAMERAPOSITION = simd_make_float3(0, 5, 20);
 
 

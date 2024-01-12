@@ -8,7 +8,7 @@
 #define WIDTH 800
 #define HEIGHT 800
 #define BUFFER_COUNT 2
-#define VERTEXDEFINITION 10
+#define VERTEXDEFINITION 5
 
 
 #define ShaderLib01 @"shader"

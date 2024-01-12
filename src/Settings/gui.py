@@ -100,7 +100,51 @@ JSON = {
     "CAMERAPOSITION": [0, 5, 20],
 }
 
-jsonDICO = JSON
+WATERLIKE = {
+    "SECURITY": 0.6461416166350219,
+    "RESET": 1,
+    "PARTICLECOUNT": 40000,
+    "RADIUS": 0.01,
+    "H": 0.35,
+    "TARGET_DENSITY": 400.0,
+    "GAZ_CONSTANT": 60.0,
+    "NEAR_GAZ_CONSTANT": 60.0,
+    "VISCOSITY": 1.0,
+    "DUMPING_FACTOR": 0.8,
+    "FREQUENCY": 0.0,
+    "AMPLITUDE": 0.0,
+    "PAUSE": 0.0,
+    "VISUAL": 0,
+    "THRESHOLD": 1.0,
+    "XOFFSET": 2.79,
+    "BOUNDING_BOX": [0, 0, 0],
+    "originBOUNDING_BOX": [0, 0, 0],
+    "CAMERAPOSITION": [0, 5, 20],
+}
+
+Interesting = {
+    "SECURITY": 0.41413116329915234,
+    "RESET": 1,
+    "PARTICLECOUNT": 40000,
+    "RADIUS": 0.01,
+    "H": 0.35,
+    "TARGET_DENSITY": 1000.0,
+    "GAZ_CONSTANT": 39.0,
+    "NEAR_GAZ_CONSTANT": 21.0,
+    "VISCOSITY": 9.4,
+    "DUMPING_FACTOR": 0.8,
+    "FREQUENCY": 0.0,
+    "AMPLITUDE": 0.0,
+    "PAUSE": 0.0,
+    "VISUAL": 0,
+    "THRESHOLD": 1.0,
+    "XOFFSET": 2.11,
+    "BOUNDING_BOX": [0, 0, 0],
+    "originBOUNDING_BOX": [0, 0, 0],
+    "CAMERAPOSITION": [1, 5, 19],
+}
+
+jsonDICO = WATERLIKE
 
 
 VISUALS = {
