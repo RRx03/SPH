@@ -16,10 +16,13 @@
 struct Uniform {
     simd_float4x4 projectionMatrix;
     simd_float4x4 viewMatrix;
+    simd_float4x4 localToWorld;
+    simd_float4x4 worldToLocal;
     float dt;
     float time;
     unsigned int SUBSTEPS;
     unsigned int PARTICLECOUNT;
+    unsigned int MAXPARTICLECOUNT;
     simd_float3 COLOR;
     float RADIUS;
     float H;
@@ -32,6 +35,7 @@ struct Uniform {
     simd_float3 BOUNDING_BOX;
     simd_float3 originBOUNDING_BOX;
     simd_float3 oldBOUNDING_BOX;
+    simd_float3 initialBOUNDING_BOX;
     simd_float3 velBOUNDING_BOX;
     simd_float3 CAMERAPOSITION;
     float FREQUENCY;
@@ -42,6 +46,8 @@ struct Uniform {
     unsigned int frame;
     bool ZINDEXSORT;
     unsigned int TABLE_SIZE;
+    float SECURITY;
+    float RESET;
 };
 struct Stats {
     float MAX_GLOBAL_DENSITY;

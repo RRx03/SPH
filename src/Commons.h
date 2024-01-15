@@ -21,7 +21,6 @@
 #import "Shared.h"
 
 extern struct Engine engine;
-extern struct SETTINGS SETTINGS;
 extern struct Uniform uniform;
 extern struct Stats stats;
 
@@ -32,6 +31,8 @@ simd_int3 CellCoords(simd_float3 pos, float CELL_SIZE);
 uint hash(simd_int3 CellCoords, uint tableSize);
 matrix_float4x4 projectionMatrix(float FOV, float aspect, float near, float far);
 matrix_float4x4 translation(simd_float3 vec);
+matrix_float4x4 rotationX(float angle);
+matrix_float4x4 rotationZ(float angle);
 void initParticles();
 void updatedt();
 void RESET_TABLES();

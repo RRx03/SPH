@@ -94,3 +94,22 @@ matrix_float4x4 translation(simd_float3 vec)
     matrix.columns[3].z = vec.z;
     return matrix;
 }
+
+matrix_float4x4 rotationX(float angle)
+{
+    matrix_float4x4 matrix = matrix_identity_float4x4;
+    matrix.columns[1][1] = cos(angle);
+    matrix.columns[1][2] = sin(angle);
+    matrix.columns[2][1] = -sin(angle);
+    matrix.columns[2][2] = cos(angle);
+    return matrix;
+}
+matrix_float4x4 rotationZ(float angle)
+{
+    matrix_float4x4 matrix = matrix_identity_float4x4;
+    matrix.columns[0][0] = cos(angle);
+    matrix.columns[0][1] = sin(angle);
+    matrix.columns[1][0] = -sin(angle);
+    matrix.columns[1][1] = cos(angle);
+    return matrix;
+}

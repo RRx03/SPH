@@ -38,6 +38,9 @@ PRESET2 = {
     "VISUAL": 0,
     "THRESHOLD": 1.0,
     "XOFFSET": 0.0,
+    "BOUNDING_BOX": [0, 0, 0],
+    "originBOUNDING_BOX": [0, 0, 0],
+    "CAMERAPOSITION": [0, 5, 20],
 }
 
 FUNNY = {
@@ -101,7 +104,7 @@ JSON = {
 }
 
 WATERLIKE = {
-    "SECURITY": 0.6461416166350219,
+    "SECURITY": 0.28484767567393143,
     "RESET": 1,
     "PARTICLECOUNT": 40000,
     "RADIUS": 0.01,
@@ -116,10 +119,10 @@ WATERLIKE = {
     "PAUSE": 0.0,
     "VISUAL": 0,
     "THRESHOLD": 1.0,
-    "XOFFSET": 2.79,
+    "XOFFSET": 0.0,
     "BOUNDING_BOX": [0, 0, 0],
     "originBOUNDING_BOX": [0, 0, 0],
-    "CAMERAPOSITION": [0, 5, 20],
+    "CAMERAPOSITION": [1, 0, 2],
 }
 
 Interesting = {
@@ -142,6 +145,28 @@ Interesting = {
     "BOUNDING_BOX": [0, 0, 0],
     "originBOUNDING_BOX": [0, 0, 0],
     "CAMERAPOSITION": [1, 5, 19],
+}
+
+Working = {
+    "SECURITY": 0.16888723285643914,
+    "RESET": 0,
+    "PARTICLECOUNT": 10000,
+    "RADIUS": 0.18,
+    "H": 0.68,
+    "TARGET_DENSITY": 78.0,
+    "GAZ_CONSTANT": 82.0,
+    "NEAR_GAZ_CONSTANT": 210.0,
+    "VISCOSITY": 0.73,
+    "DUMPING_FACTOR": 0.8,
+    "FREQUENCY": 0.0,
+    "AMPLITUDE": 0.0,
+    "PAUSE": 0.0,
+    "VISUAL": 3,
+    "THRESHOLD": 1.0,
+    "XOFFSET": -0.78,
+    "BOUNDING_BOX": [0, 0, 0],
+    "originBOUNDING_BOX": [0, 0, 0],
+    "CAMERAPOSITION": [0, 16, 30],
 }
 
 jsonDICO = WATERLIKE
