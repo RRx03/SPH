@@ -73,6 +73,7 @@ struct Engine {
     id<MTLComputePipelineState> CPSOcalculateDensities;
     id<MTLComputePipelineState> CPSOcalculatePressureViscosity;
     id<MTLComputePipelineState> CPSOprediciton;
+    id<MTLComputePipelineState> CPSOStartIndex;
 
     id<MTLCaptureScope> Scope;
 
@@ -86,6 +87,9 @@ struct Engine {
     id<MTLCommandBuffer> commandComputeBuffer[BUFFER_COUNT];
     id<MTLBuffer> TABLE_ARRAY;
     id<MTLBuffer> START_INDICES;
+
+    id<MTLBuffer> START_INDEX;
+    id<MTLBuffer> START_COUNT;
     id<MTLBuffer> sortedParticleBuffer;
 };
 

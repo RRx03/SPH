@@ -272,33 +272,33 @@ kernel void updateParticles(
 
     if (particleLocalPosition.y > uniform.originBOUNDING_BOX.y + uniform.BOUNDING_BOX.y) {
         particleLocalPosition.y = uniform.originBOUNDING_BOX.y + uniform.BOUNDING_BOX.y;
-        // float difference = abs(particleLocalVelocity.y - uniform.velBOUNDING_BOX.y);
-        particleLocalVelocity.y *= -1 * uniform.DUMPING_FACTOR;
+        float difference = abs(particleLocalVelocity.y - uniform.velBOUNDING_BOX.y) ;
+        particleLocalVelocity.y = -1 * difference * uniform.DUMPING_FACTOR;
     } 
     else if (particleLocalPosition.y < uniform.originBOUNDING_BOX.y) {
         particleLocalPosition.y = uniform.originBOUNDING_BOX.y;
-        // float difference = abs(particleLocalVelocity.y - uniform.velBOUNDING_BOX.y) *(dot(particleLocalVelocity, particleLocalVelocity) < 0);
-        particleLocalVelocity.y *= -1 * uniform.DUMPING_FACTOR;
+        float difference = abs(particleLocalVelocity.y - uniform.velBOUNDING_BOX.y);
+        particleLocalVelocity.y = 1 * difference * uniform.DUMPING_FACTOR;
     }
 
     if (particleLocalPosition.x > uniform.originBOUNDING_BOX.x + uniform.BOUNDING_BOX.x) {
         particleLocalPosition.x = uniform.originBOUNDING_BOX.x + uniform.BOUNDING_BOX.x;
-        // float difference = abs(particleLocalVelocity.x - uniform.velBOUNDING_BOX.x);
-        particleLocalVelocity.x *= -1 * uniform.DUMPING_FACTOR;
+        float difference = abs(particleLocalVelocity.x - uniform.velBOUNDING_BOX.x);
+        particleLocalVelocity.x = -1 * difference * uniform.DUMPING_FACTOR;
     } 
     else if (particleLocalPosition.x < uniform.originBOUNDING_BOX.x) {
         particleLocalPosition.x = uniform.originBOUNDING_BOX.x;
-        // float difference = abs(particleLocalVelocity.x - uniform.velBOUNDING_BOX.x) *(dot(particleLocalVelocity, particleLocalVelocity) < 0);
-        particleLocalVelocity.x *= -1 * uniform.DUMPING_FACTOR;
+        float difference = abs(particleLocalVelocity.x - uniform.velBOUNDING_BOX.x);
+        particleLocalVelocity.x = 1 * difference * uniform.DUMPING_FACTOR;
     }
     if (particleLocalPosition.z > uniform.originBOUNDING_BOX.z + uniform.BOUNDING_BOX.z) {
         particleLocalPosition.z = uniform.originBOUNDING_BOX.z + uniform.BOUNDING_BOX.z;
-        // float difference = abs(particleLocalVelocity.z - uniform.velBOUNDING_BOX.z);
-        particleLocalVelocity.z *= -1 * uniform.DUMPING_FACTOR;
+        float difference = abs(particleLocalVelocity.z - uniform.velBOUNDING_BOX.z);
+        particleLocalVelocity.z = -1 * difference * uniform.DUMPING_FACTOR;
     } else if (particleLocalPosition.z < uniform.originBOUNDING_BOX.z) {
         particleLocalPosition.z = uniform.originBOUNDING_BOX.z;
-        // float difference = abs(particleLocalVelocity.z - uniform.velBOUNDING_BOX.z);
-        particleLocalVelocity.z *= -1 * uniform.DUMPING_FACTOR;
+        float difference = abs(particleLocalVelocity.z - uniform.velBOUNDING_BOX.z);
+        particleLocalVelocity.z = 1 * difference * uniform.DUMPING_FACTOR;
     }
 
     particle.position = (uniform.localToWorld * float4(particleLocalPosition, 1)).xyz;

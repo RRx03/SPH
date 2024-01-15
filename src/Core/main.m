@@ -101,6 +101,10 @@ void setup(MTKView *view)
         [engine.device newComputePipelineStateWithFunction:[engine.library newFunctionWithName:@"PREDICTION"]
                                                      error:&error];
 
+    // engine.CPSOStartIndex =
+    //     [engine.device newComputePipelineStateWithFunction:[engine.library newFunctionWithName:@"START_INDEX"]
+    //                                                  error:&error];
+
 
     MTLRenderPipelineDescriptor *renderPipelineDescriptor = [MTLRenderPipelineDescriptor new];
     renderPipelineDescriptor.vertexFunction = [engine.library newFunctionWithName:@"vertexShader"];
@@ -125,11 +129,22 @@ void initBuffers()
                                                     options:MTLResourceStorageModeShared];
     engine.TABLE_ARRAY.label = @"Table Array";
 
+    // engine.START_INDEX = [engine.device newBufferWithLength:sizeof(uint) * uniform.TABLE_SIZE
+    //                                                 options:MTLResourceStorageModeShared];
+    // engine.START_INDEX.label = @"Start Index";
+
+    // engine.START_COUNT = [engine.device newBufferWithLength:sizeof(uint) * uniform.TABLE_SIZE
+    //                                                 options:MTLResourceStorageModeShared];
+    // engine.START_COUNT.label = @"Start Count";
+
+
     engine.START_INDICES = [engine.device newBufferWithLength:sizeof(struct START_INDICES_STRUCT) * uniform.TABLE_SIZE
                                                       options:MTLResourceStorageModeShared];
     engine.START_INDICES.label = @"Start Indices";
     engine.particleBuffer = [engine.device newBufferWithLength:sizeof(struct Particle) * uniform.MAXPARTICLECOUNT
                                                        options:MTLResourceStorageModeShared];
+
+
     engine.particleBuffer.label = @"Particle Buffer";
 
     engine.sortedParticleBuffer = [engine.device newBufferWithLength:sizeof(struct Particle) * uniform.MAXPARTICLECOUNT
@@ -296,7 +311,6 @@ void RESET_TABLES()
     [computeEncoder setBuffer:engine.TABLE_ARRAY offset:0 atIndex:2];
     [computeEncoder setBuffer:engine.START_INDICES offset:0 atIndex:4];
     [computeEncoder setBytes:&uniform length:sizeof(struct Uniform) atIndex:10];
-    [computeEncoder setBytes:&stats length:sizeof(struct Stats) atIndex:11];
 
     [computeEncoder dispatchThreads:MTLSizeMake(uniform.TABLE_SIZE, 1, 1)
               threadsPerThreadgroup:MTLSizeMake(engine.CPSOinitParticles.maxTotalThreadsPerThreadgroup, 1, 1)];
@@ -315,7 +329,6 @@ void INIT_TABLES()
     [computeEncoder setBuffer:engine.particleBuffer offset:0 atIndex:1];
     [computeEncoder setBuffer:engine.TABLE_ARRAY offset:0 atIndex:2];
     [computeEncoder setBytes:&uniform length:sizeof(struct Uniform) atIndex:10];
-    [computeEncoder setBytes:&stats length:sizeof(struct Stats) atIndex:11];
 
     [computeEncoder dispatchThreads:MTLSizeMake(uniform.PARTICLECOUNT, 1, 1)
               threadsPerThreadgroup:MTLSizeMake(engine.CPSOinitParticles.maxTotalThreadsPerThreadgroup, 1, 1)];
@@ -335,7 +348,6 @@ void ASSIGN_DENSE_TABLE()
     [computeEncoder setBuffer:engine.TABLE_ARRAY offset:0 atIndex:2];
     [computeEncoder setBuffer:engine.sortedParticleBuffer offset:0 atIndex:5];
     [computeEncoder setBytes:&uniform length:sizeof(struct Uniform) atIndex:10];
-    [computeEncoder setBytes:&stats length:sizeof(struct Stats) atIndex:11];
 
     [computeEncoder dispatchThreads:MTLSizeMake(uniform.PARTICLECOUNT, 1, 1)
               threadsPerThreadgroup:MTLSizeMake(engine.CPSOinitParticles.maxTotalThreadsPerThreadgroup, 1, 1)];
@@ -343,6 +355,26 @@ void ASSIGN_DENSE_TABLE()
     [engine.commandComputeBuffer[0] commit];
     [engine.commandComputeBuffer[0] waitUntilCompleted];
 }
+
+
+// void START_INDEX()
+// {
+//     engine.commandComputeBuffer[0] = [engine.commandQueue commandBuffer];
+//     engine.commandComputeBuffer[0].label = @"START INDEX";
+//     id<MTLComputeCommandEncoder> computeEncoder = [engine.commandComputeBuffer[0] computeCommandEncoder];
+
+//     [computeEncoder setComputePipelineState:engine.CPSOStartIndex];
+//     [computeEncoder setBuffer:engine.START_INDEX offset:0 atIndex:6];
+//     [computeEncoder setBuffer:engine.START_COUNT offset:0 atIndex:7];
+//     [computeEncoder setBuffer:engine.TABLE_ARRAY offset:0 atIndex:2];
+//     [computeEncoder setBytes:&uniform length:sizeof(struct Uniform) atIndex:10];
+
+//     [computeEncoder dispatchThreads:MTLSizeMake(uniform.PARTICLECOUNT, 1, 1)
+//               threadsPerThreadgroup:MTLSizeMake(engine.CPSOinitParticles.maxTotalThreadsPerThreadgroup, 1, 1)];
+//     [computeEncoder endEncoding];
+//     [engine.commandComputeBuffer[0] commit];
+//     [engine.commandComputeBuffer[0] waitUntilCompleted];
+// }
 
 
 void PREDICT()

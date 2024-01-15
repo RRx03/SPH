@@ -37,7 +37,6 @@ uint ZCURVE_key(int3 trueCoords, uint m){
 kernel void RESET_TABLES(device uint *TABLE_ARRAY [[buffer(2)]],
                          device START_INDICES_STRUCT *START_INDICES [[buffer(4)]],
                          constant Uniform &uniform [[buffer(10)]],
-                         constant Stats &stats [[buffer(11)]],
                          uint id [[thread_position_in_grid]])
 {
     TABLE_ARRAY[id] = 0;
@@ -49,7 +48,6 @@ kernel void RESET_TABLES(device uint *TABLE_ARRAY [[buffer(2)]],
 kernel void INIT_TABLES(constant Particle *PARTICLES [[buffer(1)]],
                         device atomic_uint &TABLE_ARRAY [[buffer(2)]],
                         constant Uniform &uniform [[buffer(10)]],
-                        constant Stats &stats [[buffer(11)]],
                         uint particleID [[thread_position_in_grid]])
 {
     int3 CELL_COORDINATES = CELL_COORDS(PARTICLES[particleID].position, uniform.H);
@@ -70,7 +68,6 @@ kernel void ASSIGN_DENSE_TABLE(constant Particle *PARTICLES [[buffer(1)]],
                                device atomic_uint &TABLE_ARRAY [[buffer(2)]],
                                device Particle *SORTED_PARTICLES [[buffer(5)]],
                                constant Uniform &uniform [[buffer(10)]],
-                               constant Stats &stats [[buffer(11)]],
                                uint particleID [[thread_position_in_grid]])
 {
     int3 CELL_COORDINATES = CELL_COORDS(PARTICLES[particleID].position, uniform.H);
@@ -90,3 +87,23 @@ kernel void ASSIGN_DENSE_TABLE(constant Particle *PARTICLES [[buffer(1)]],
 
     SORTED_PARTICLES[id] = PARTICLES[particleID];
 }
+
+
+
+
+// kernel void START_INDEX(device atomic_uint &START_INDEX [[buffer(6)]],
+//                         device atomic_uint &START_COUNT [[buffer(7)]],
+//                         constant uint &TABLE_ARRAY [[buffer(2)]],
+//                         constant Uniform &uniform [[buffer(10)]],
+//                         uint tableID [[thread_position_in_grid]])
+// {
+
+//     uint nextValue = TABLE_ARRAY[tableID+1];
+//     uint value = TABLE_ARRAY[tableID];
+
+//     if (value != nextValue)
+//     {
+//       atomic_fetch_add_explicit(&START_INDEX+tableID, value, memory_order_relaxed);
+
+//     }  
+// }
