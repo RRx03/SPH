@@ -47,7 +47,7 @@ int main(int argc, const char *argv[])
 
 void setup(MTKView *view)
 {
-    view.clearColor = MTLClearColorMake(0.0, 0.0, 0.0, 1.0);
+    view.clearColor = MTLClearColorMake(1.0, 1.0, 1.0, 1.0);
     view.colorPixelFormat = MTLPixelFormatBGRA8Unorm;
     view.depthStencilPixelFormat = MTLPixelFormatDepth32Float_Stencil8;
 

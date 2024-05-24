@@ -33,7 +33,7 @@ buildShader:
 	xcrun -sdk macosx metallib -o $(SHADER_BUILD_DIR)/shader.metallib $(SHADER_INTER_FILES)
 	
 buildApp:
-	clang -Ofast -ObjC -fobjc-arc -fmodules -framework CoreGraphics -framework Metal -framework QuartzCore -framework MetalKit -framework Cocoa -o $(BUILD_DIR)/$(APP_NAME) $(APP_FILES)
+	clang -O2 -fobjc-arc -fmodules -framework CoreGraphics -framework Metal -framework QuartzCore -framework MetalKit -framework Cocoa -o $(BUILD_DIR)/$(APP_NAME) $(APP_FILES)
 
 #-O0 means no optimization
 #-O2 means optimization
@@ -84,5 +84,5 @@ openGPU :
 	open ./analysis
 
 sign :
-	codesign -f -v --sign "Apple Development" --entitlements $(BUILD_DIR)/entitlements.plist $(BUILD_DIR)/$(APP_NAME)
+	codesign -f -v --sign "Roman ROUX" --entitlements $(BUILD_DIR)/entitlements.plist $(BUILD_DIR)/$(APP_NAME)
 	
