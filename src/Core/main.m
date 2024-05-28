@@ -18,7 +18,7 @@ void initSettings()
     uniform.TABLE_SIZE = fmax(120000, uniform.PARTICLECOUNT);
     uniform.MASS = 1;
     uniform.COLOR = simd_make_float3(1.0, 1.0, 1.0);
-    uniform.SUBSTEPS = 1;
+    uniform.SUBSTEPS = 1; // Ameliore fortement la stabilité
 
     uniform.ZINDEXSORT = false;
 
@@ -200,6 +200,7 @@ void draw(MTKView *view)
     }
 
     uniform.oldBOUNDING_BOX = uniform.BOUNDING_BOX;
+    FrameRate();
 }
 
 void RENDER(MTKView *view)
@@ -458,6 +459,14 @@ void updatedt()
     NSTimeInterval timeInterval = [engine.start timeIntervalSinceNow];
     uniform.dt = -timeInterval;
     engine.start = [NSDate date];
+}
+void FrameRate()
+{
+    if (uniform.frame % 100 == 0) {
+        NSTimeInterval timeInterval = [engine.start timeIntervalSinceNow];
+        printf("%f\n", -100 / timeInterval);
+        engine.start = [NSDate date];
+    }
 }
 
 void READJSONSETTINGS()

@@ -21,9 +21,9 @@ kernel void initParticles(
 
     // Calcule la position initiale de la particule
     float3 position =
-        float3(uniform.originBOUNDING_BOX.x + uniform.BOUNDING_BOX.x * random(&randomState), 
-               uniform.originBOUNDING_BOX.y + uniform.BOUNDING_BOX.y * random(&randomState),
-               uniform.originBOUNDING_BOX.z + uniform.BOUNDING_BOX.z * random(&randomState));
+        float3(uniform.originBOUNDING_BOX.x + uniform.BOUNDING_BOX.x/3 * random(&randomState), 
+               uniform.originBOUNDING_BOX.y + uniform.BOUNDING_BOX.y/3 * random(&randomState),
+               uniform.originBOUNDING_BOX.z + uniform.BOUNDING_BOX.z/3 * random(&randomState));
 
     particles[id].position = (uniform.localToWorld * float4(position, 1)).xyz;
 
@@ -177,15 +177,16 @@ kernel void CALCULATE_PRESSURE_VISCOSITY(
                 float3 dir = dist == 0 ? float3(0, 1, 0) : offset/dist;
 
                 // Calcule la pression et la pression proche partagées
-                float sharedPressure = (particle.pressure + otherParticle.pressure) / (2*otherParticle.density);
-                float sharedNearPressure = (particle.nearPressure + otherParticle.nearPressure) / (2*otherParticle.nearDensity);
+                float sharedPressure = (particle.pressure + otherParticle.pressure)/2;
+                float sharedNearPressure = (particle.nearPressure + otherParticle.nearPressure)/2;
 
                 // Met à jour la force de pression
                 pressureForce += dir * sharedPressure * DensityDerivative(dist, uniform.H);
                 pressureForce += dir * sharedNearPressure * NearDensityDerivative(dist, uniform.H);
 
                 // Met à jour la force de viscosité
-                viscosityForce += (otherParticle.velocity - particle.velocity) * uniform.VISCOSITY * SmoothingKernelPoly6(dist, uniform.H);
+                float weight = SmoothingKernelPoly6(dist, uniform.H);
+                viscosityForce += (otherParticle.velocity - particle.velocity) * uniform.VISCOSITY * (weight*weight);
             }
         }
     }
@@ -288,7 +289,7 @@ kernel void updateParticles(
     } 
     else if (particleLocalPosition.x < uniform.originBOUNDING_BOX.x) {
         particleLocalPosition.x = uniform.originBOUNDING_BOX.x;
-        float difference = abs(particleLocalVelocity.x - uniform.velBOUNDING_BOX.x);
+        float difference = abs(particleLocalVelocity.x);
         particleLocalVelocity.x = 1 * difference * uniform.DUMPING_FACTOR;
     }
     if (particleLocalPosition.z > uniform.originBOUNDING_BOX.z + uniform.BOUNDING_BOX.z) {

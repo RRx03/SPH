@@ -49,6 +49,8 @@ void PREDICT();
 void initCapture();
 void startCapture();
 void stopCapture();
+void FrameRate();
+
 
 @interface ComputePSO : NSObject
 @property (retain, readwrite, nonatomic) id<MTLComputePipelineState> computePSO;

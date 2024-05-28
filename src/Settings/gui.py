@@ -3,170 +3,31 @@ from tkinter import ttk
 from json import *
 from random import *
 
-PRESET1 = {
-    "SECURITY": 1,
-    "RESET": 0,
-    "PARTICLECOUNT": 20000,
-    "RADIUS": 0.1,
-    "H": 0.35,
-    "TARGET_DENSITY": 300,
-    "GAZ_CONSTANT": 40,
-    "NEAR_GAZ_CONSTANT": 40,
-    "VISCOSITY": 2,
-    "DUMPING_FACTOR": 0.70,
-    "FREQUENCY": 0.0,
-    "AMPLITUDE": 0.0,
-    "PAUSE": 0,
-    "VISUAL": 0,
-    "THRESHOLD": 1,
-    "XOFFSET": 0,
-}
-PRESET2 = {
-    "SECURITY": 1,
-    "RESET": 0,
-    "PARTICLECOUNT": 40000,
-    "RADIUS": 0.07,
-    "H": 0.35,
-    "TARGET_DENSITY": 400.0,
-    "GAZ_CONSTANT": 60.0,
-    "NEAR_GAZ_CONSTANT": 60.0,
-    "VISCOSITY": 1.0,
-    "DUMPING_FACTOR": 0.8,
-    "FREQUENCY": 0.0,
-    "AMPLITUDE": 0.0,
-    "PAUSE": 0.0,
-    "VISUAL": 0,
-    "THRESHOLD": 1.0,
-    "XOFFSET": 0.0,
-    "BOUNDING_BOX": [0, 0, 0],
-    "originBOUNDING_BOX": [0, 0, 0],
-    "CAMERAPOSITION": [0, 5, 20],
-}
 
-FUNNY = {
-    "SECURITY": 1,
-    "RESET": 0,
-    "PARTICLECOUNT": 20000,
-    "RADIUS": 0.07,
-    "H": 0.35,
-    "TARGET_DENSITY": 800.0,
-    "GAZ_CONSTANT": 40.0,
-    "NEAR_GAZ_CONSTANT": 40.0,
-    "VISCOSITY": 10.0,
-    "DUMPING_FACTOR": 0.8,
-    "FREQUENCY": 0.0,
-    "AMPLITUDE": 0.0,
-    "PAUSE": 0.0,
-    "VISUAL": 0,
-    "THRESHOLD": 1.0,
-    "XOFFSET": 0,
-}
+def change_focus(event):
+    event.widget.focus_set()
 
-DEBUG = {
-    "SECURITY": 1,
-    "RESET": 0,
-    "PARTICLECOUNT": 20000,
-    "RADIUS": 0.07,
-    "H": 0.35,
-    "TARGET_DENSITY": 0,
-    "GAZ_CONSTANT": 0.0,
-    "NEAR_GAZ_CONSTANT": 0.0,
-    "VISCOSITY": 0.0,
-    "DUMPING_FACTOR": 0,
-    "FREQUENCY": 0.0,
-    "AMPLITUDE": 0.0,
-    "PAUSE": 0.0,
-    "VISUAL": 0,
-    "THRESHOLD": 1.0,
-    "XOFFSET": 0,
-}
-
-JSON = {
-    "SECURITY": 1,
-    "RESET": 0,
-    "PARTICLECOUNT": 40000,
-    "RADIUS": 0.07,
-    "H": 0.35,
-    "TARGET_DENSITY": 400.0,
-    "GAZ_CONSTANT": 60.0,
-    "NEAR_GAZ_CONSTANT": 60.0,
-    "VISCOSITY": 1.0,
-    "DUMPING_FACTOR": 0.8,
-    "FREQUENCY": 0.0,
-    "AMPLITUDE": 0.0,
-    "PAUSE": 0.0,
-    "VISUAL": 0,
-    "THRESHOLD": 1.0,
-    "XOFFSET": -2.0,
-    "BOUNDING_BOX": [0, 0, 0],
-    "originBOUNDING_BOX": [0, 0, 0],
-    "CAMERAPOSITION": [0, 5, 20],
-}
 
 WATERLIKE = {
     "SECURITY": 0.28484767567393143,
     "RESET": 1,
     "PARTICLECOUNT": 40000,
-    "RADIUS": 0.01,
+    "RADIUS": 0.08,
     "H": 0.35,
-    "TARGET_DENSITY": 400.0,
-    "GAZ_CONSTANT": 60.0,
-    "NEAR_GAZ_CONSTANT": 60.0,
-    "VISCOSITY": 1.0,
+    "TARGET_DENSITY": 1000.0,
+    "GAZ_CONSTANT": 0.1,
+    "NEAR_GAZ_CONSTANT": 0.1,
+    "VISCOSITY": 0.1,
     "DUMPING_FACTOR": 0.8,
-    "FREQUENCY": 0.0,
-    "AMPLITUDE": 0.0,
+    "FREQUENCY": 0,
+    "AMPLITUDE": 0,
     "PAUSE": 0.0,
-    "VISUAL": 0,
+    "VISUAL": 5,
     "THRESHOLD": 1.0,
     "XOFFSET": 0.0,
     "BOUNDING_BOX": [0, 0, 0],
     "originBOUNDING_BOX": [0, 0, 0],
     "CAMERAPOSITION": [1, 0, 2],
-}
-
-Interesting = {
-    "SECURITY": 0.41413116329915234,
-    "RESET": 1,
-    "PARTICLECOUNT": 40000,
-    "RADIUS": 0.01,
-    "H": 0.35,
-    "TARGET_DENSITY": 1000.0,
-    "GAZ_CONSTANT": 39.0,
-    "NEAR_GAZ_CONSTANT": 21.0,
-    "VISCOSITY": 9.4,
-    "DUMPING_FACTOR": 0.8,
-    "FREQUENCY": 0.0,
-    "AMPLITUDE": 0.0,
-    "PAUSE": 0.0,
-    "VISUAL": 0,
-    "THRESHOLD": 1.0,
-    "XOFFSET": 2.11,
-    "BOUNDING_BOX": [0, 0, 0],
-    "originBOUNDING_BOX": [0, 0, 0],
-    "CAMERAPOSITION": [1, 5, 19],
-}
-
-Working = {
-    "SECURITY": 0.16888723285643914,
-    "RESET": 0,
-    "PARTICLECOUNT": 10000,
-    "RADIUS": 0.18,
-    "H": 0.68,
-    "TARGET_DENSITY": 78.0,
-    "GAZ_CONSTANT": 82.0,
-    "NEAR_GAZ_CONSTANT": 210.0,
-    "VISCOSITY": 0.73,
-    "DUMPING_FACTOR": 0.8,
-    "FREQUENCY": 0.0,
-    "AMPLITUDE": 0.0,
-    "PAUSE": 0.0,
-    "VISUAL": 3,
-    "THRESHOLD": 1.0,
-    "XOFFSET": -0.78,
-    "BOUNDING_BOX": [0, 0, 0],
-    "originBOUNDING_BOX": [0, 0, 0],
-    "CAMERAPOSITION": [0, 16, 30],
 }
 
 jsonDICO = WATERLIKE
@@ -254,10 +115,10 @@ def KEYPRESSED(event):
     t = event.keysym
     if t == "Return":
         sendUpdates()
-    if t == "space":
+    if t == "e":
         CAMERAPOSITION[1] += step
         sendUpdates()
-    if t == "Shift_L":
+    if t == "a":
         CAMERAPOSITION[1] -= step
         sendUpdates()
     if t == "z":
@@ -286,6 +147,7 @@ master.configure(bg="white")
 master.grid_columnconfigure(0, weight=1)
 master.bind("<Key>", KEYPRESSED)
 master.bind("<Motion>", MOUSE)
+master.bind_all("<Button>", change_focus)
 
 
 PARTICLECOUNT = IntVar()
@@ -360,10 +222,10 @@ Label(master, text="TARGET_DENSITY").grid(row=packCount * currentRow, column=0)
 Scale(
     master,
     from_=0,
-    to=1000,
+    to=5000,
     length=800,
     orient=HORIZONTAL,
-    resolution=1,
+    resolution=10,
     command=updateSettings,
     variable=TARGET_DENSITY,
     bg="white",
@@ -382,10 +244,10 @@ Label(master, text="GAZ_CONSTANT").grid(row=packCount * currentRow, column=0)
 Scale(
     master,
     from_=0,
-    to=1000,
+    to=5,
     length=800,
     orient=HORIZONTAL,
-    resolution=1,
+    resolution=0.01,
     command=updateSettings,
     variable=GAZ_CONSTANT,
     bg="white",
@@ -404,10 +266,10 @@ Label(master, text="NEAR_GAZ_CONSTANT").grid(row=packCount * currentRow, column=
 Scale(
     master,
     from_=0,
-    to=1000,
+    to=5,
     length=800,
     orient=HORIZONTAL,
-    resolution=1,
+    resolution=0.01,
     command=updateSettings,
     variable=NEAR_GAZ_CONSTANT,
     bg="white",
