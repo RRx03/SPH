@@ -84,5 +84,5 @@ openGPU :
 	open ./analysis
 
 sign :
-	codesign -f -v --sign "Apple Development" --entitlements $(BUILD_DIR)/entitlements.plist $(BUILD_DIR)/$(APP_NAME)
+	codesign -f -v --sign "Roman ROUX" --entitlements $(BUILD_DIR)/entitlements.plist $(BUILD_DIR)/$(APP_NAME)
 	

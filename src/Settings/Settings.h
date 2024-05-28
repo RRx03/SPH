@@ -17,11 +17,17 @@ struct SETTINGS {
     float FREQUENCY;
     float AMPLITUDE;
     simd_float3 BOUNDING_BOX;
+    simd_float3 originBOUNDING_BOX;
+    simd_float3 CAMERAPOSITION;
+
+    unsigned int TABLE_SIZE;
+
 
     float SECURITY;
     float RESET;
     int VISUAL;
     float THRESHOLD;
+    bool ZINDEXSORT;
 };
 
 

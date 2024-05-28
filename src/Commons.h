@@ -21,7 +21,6 @@
 #import "Shared.h"
 
 extern struct Engine engine;
-extern struct SETTINGS SETTINGS;
 extern struct Uniform uniform;
 extern struct Stats stats;
 
@@ -32,6 +31,8 @@ simd_int3 CellCoords(simd_float3 pos, float CELL_SIZE);
 uint hash(simd_int3 CellCoords, uint tableSize);
 matrix_float4x4 projectionMatrix(float FOV, float aspect, float near, float far);
 matrix_float4x4 translation(simd_float3 vec);
+matrix_float4x4 rotationX(float angle);
+matrix_float4x4 rotationZ(float angle);
 void initParticles();
 void updatedt();
 void RESET_TABLES();
@@ -48,6 +49,8 @@ void PREDICT();
 void initCapture();
 void startCapture();
 void stopCapture();
+void FrameRate();
+
 
 @interface ComputePSO : NSObject
 @property (retain, readwrite, nonatomic) id<MTLComputePipelineState> computePSO;
@@ -72,6 +75,7 @@ struct Engine {
     id<MTLComputePipelineState> CPSOcalculateDensities;
     id<MTLComputePipelineState> CPSOcalculatePressureViscosity;
     id<MTLComputePipelineState> CPSOprediciton;
+    id<MTLComputePipelineState> CPSOStartIndex;
 
     id<MTLCaptureScope> Scope;
 
@@ -84,8 +88,10 @@ struct Engine {
     id<MTLCommandBuffer> commandRenderBuffer[BUFFER_COUNT];
     id<MTLCommandBuffer> commandComputeBuffer[BUFFER_COUNT];
     id<MTLBuffer> TABLE_ARRAY;
-    id<MTLBuffer> DENSE_TABLE;
     id<MTLBuffer> START_INDICES;
+
+    id<MTLBuffer> START_INDEX;
+    id<MTLBuffer> START_COUNT;
     id<MTLBuffer> sortedParticleBuffer;
 };
 

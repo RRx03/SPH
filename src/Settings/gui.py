@@ -3,101 +3,34 @@ from tkinter import ttk
 from json import *
 from random import *
 
-PRESET1 = {
-    "SECURITY": 1,
-    "RESET": 0,
-    "PARTICLECOUNT": 20000,
-    "RADIUS": 0.1,
-    "H": 0.35,
-    "TARGET_DENSITY": 300,
-    "GAZ_CONSTANT": 40,
-    "NEAR_GAZ_CONSTANT": 40,
-    "VISCOSITY": 2,
-    "DUMPING_FACTOR": 0.70,
-    "FREQUENCY": 0.0,
-    "AMPLITUDE": 0.0,
-    "PAUSE": 0,
-    "VISUAL": 0,
-    "THRESHOLD": 1,
-    "XOFFSET": 0,
-}
-PRESET2 = {
-    "SECURITY": 1,
-    "RESET": 0,
-    "PARTICLECOUNT": 20000,
-    "RADIUS": 0.07,
-    "H": 0.35,
-    "TARGET_DENSITY": 400.0,
-    "GAZ_CONSTANT": 60.0,
-    "NEAR_GAZ_CONSTANT": 60.0,
-    "VISCOSITY": 1.0,
-    "DUMPING_FACTOR": 0.8,
-    "FREQUENCY": 0.0,
-    "AMPLITUDE": 0.0,
-    "PAUSE": 0.0,
-    "VISUAL": 0,
-    "THRESHOLD": 1.0,
-    "XOFFSET": -2.0,
-}
 
-FUNNY = {
-    "SECURITY": 1,
-    "RESET": 0,
-    "PARTICLECOUNT": 20000,
-    "RADIUS": 0.07,
-    "H": 0.35,
-    "TARGET_DENSITY": 800.0,
-    "GAZ_CONSTANT": 40.0,
-    "NEAR_GAZ_CONSTANT": 40.0,
-    "VISCOSITY": 10.0,
-    "DUMPING_FACTOR": 0.8,
-    "FREQUENCY": 0.0,
-    "AMPLITUDE": 0.0,
-    "PAUSE": 0.0,
-    "VISUAL": 0,
-    "THRESHOLD": 1.0,
-    "XOFFSET": -3,
-}
+def change_focus(event):
+    event.widget.focus_set()
 
-DEBUG = {
-    "SECURITY": 1,
-    "RESET": 0,
-    "PARTICLECOUNT": 20000,
-    "RADIUS": 0.07,
-    "H": 0.35,
-    "TARGET_DENSITY": 0,
-    "GAZ_CONSTANT": 0.0,
-    "NEAR_GAZ_CONSTANT": 0.0,
-    "VISCOSITY": 0.0,
-    "DUMPING_FACTOR": 0,
-    "FREQUENCY": 0.0,
-    "AMPLITUDE": 0.0,
-    "PAUSE": 0.0,
-    "VISUAL": 0,
-    "THRESHOLD": 1.0,
-    "XOFFSET": 0,
-}
 
-JSON = {
-    "SECURITY": 1,
-    "RESET": 0,
+WATERLIKE = {
+    "SECURITY": 0.28484767567393143,
+    "RESET": 1,
     "PARTICLECOUNT": 40000,
-    "RADIUS": 0.07,
+    "RADIUS": 0.08,
     "H": 0.35,
-    "TARGET_DENSITY": 400.0,
-    "GAZ_CONSTANT": 60.0,
-    "NEAR_GAZ_CONSTANT": 60.0,
-    "VISCOSITY": 1.0,
+    "TARGET_DENSITY": 1000.0,
+    "GAZ_CONSTANT": 0.1,
+    "NEAR_GAZ_CONSTANT": 0.1,
+    "VISCOSITY": 0.1,
     "DUMPING_FACTOR": 0.8,
-    "FREQUENCY": 0.0,
-    "AMPLITUDE": 0.0,
+    "FREQUENCY": 0,
+    "AMPLITUDE": 0,
     "PAUSE": 0.0,
-    "VISUAL": 0,
+    "VISUAL": 5,
     "THRESHOLD": 1.0,
-    "XOFFSET": -2.0,
+    "XOFFSET": 0.0,
+    "BOUNDING_BOX": [0, 0, 0],
+    "originBOUNDING_BOX": [0, 0, 0],
+    "CAMERAPOSITION": [1, 0, 2],
 }
 
-jsonDICO = JSON
+jsonDICO = WATERLIKE
 
 
 VISUALS = {
@@ -117,6 +50,7 @@ settings = open("./src/Settings/settings.json", "w")
 settings.write(dumps(jsonDICO))
 settings.close()
 master = Tk()
+step = 1
 
 
 def setValues():
@@ -133,6 +67,9 @@ def setValues():
     THRESHOLD.set(jsonDICO["THRESHOLD"])
     PAUSE.set(jsonDICO["PAUSE"])
     XOFFSET.set(jsonDICO["XOFFSET"])
+    CAMERAPOSITION[0] = jsonDICO["CAMERAPOSITION"][0]
+    CAMERAPOSITION[1] = jsonDICO["CAMERAPOSITION"][1]
+    CAMERAPOSITION[2] = jsonDICO["CAMERAPOSITION"][2]
 
 
 def updateSettings(event):
@@ -153,6 +90,9 @@ def sendUpdates():
     jsonDICO["PAUSE"] = PAUSE.get()
     jsonDICO["THRESHOLD"] = THRESHOLD.get()
     jsonDICO["XOFFSET"] = XOFFSET.get()
+    jsonDICO["CAMERAPOSITION"][0] = CAMERAPOSITION[0]
+    jsonDICO["CAMERAPOSITION"][1] = CAMERAPOSITION[1]
+    jsonDICO["CAMERAPOSITION"][2] = CAMERAPOSITION[2]
     jsonDICO["SECURITY"] = random()
 
     settings = open("./src/Settings/settings.json", "w")
@@ -175,8 +115,23 @@ def KEYPRESSED(event):
     t = event.keysym
     if t == "Return":
         sendUpdates()
-    elif t == "space":
-        PAUSE.set(1 - PAUSE.get())
+    if t == "e":
+        CAMERAPOSITION[1] += step
+        sendUpdates()
+    if t == "a":
+        CAMERAPOSITION[1] -= step
+        sendUpdates()
+    if t == "z":
+        CAMERAPOSITION[2] -= step
+        sendUpdates()
+    if t == "q":
+        CAMERAPOSITION[0] -= step
+        sendUpdates()
+    if t == "s":
+        CAMERAPOSITION[2] += step
+        sendUpdates()
+    if t == "d":
+        CAMERAPOSITION[0] += step
         sendUpdates()
 
 
@@ -192,6 +147,7 @@ master.configure(bg="white")
 master.grid_columnconfigure(0, weight=1)
 master.bind("<Key>", KEYPRESSED)
 master.bind("<Motion>", MOUSE)
+master.bind_all("<Button>", change_focus)
 
 
 PARTICLECOUNT = IntVar()
@@ -207,6 +163,7 @@ AMPLITUDE = DoubleVar()
 PAUSE = DoubleVar()
 THRESHOLD = DoubleVar()
 XOFFSET = DoubleVar()
+CAMERAPOSITION = [0, 0, 0]
 
 
 currentRow = 0
@@ -265,10 +222,10 @@ Label(master, text="TARGET_DENSITY").grid(row=packCount * currentRow, column=0)
 Scale(
     master,
     from_=0,
-    to=1000,
+    to=5000,
     length=800,
     orient=HORIZONTAL,
-    resolution=1,
+    resolution=10,
     command=updateSettings,
     variable=TARGET_DENSITY,
     bg="white",
@@ -287,10 +244,10 @@ Label(master, text="GAZ_CONSTANT").grid(row=packCount * currentRow, column=0)
 Scale(
     master,
     from_=0,
-    to=1000,
+    to=5,
     length=800,
     orient=HORIZONTAL,
-    resolution=1,
+    resolution=0.01,
     command=updateSettings,
     variable=GAZ_CONSTANT,
     bg="white",
@@ -309,10 +266,10 @@ Label(master, text="NEAR_GAZ_CONSTANT").grid(row=packCount * currentRow, column=
 Scale(
     master,
     from_=0,
-    to=1000,
+    to=5,
     length=800,
     orient=HORIZONTAL,
-    resolution=1,
+    resolution=0.01,
     command=updateSettings,
     variable=NEAR_GAZ_CONSTANT,
     bg="white",
@@ -438,6 +395,7 @@ reset = Button(master, text="RESET", command=resetButton).grid(
 )
 
 setValues()
+sendUpdates()
 
 
 master.mainloop()
